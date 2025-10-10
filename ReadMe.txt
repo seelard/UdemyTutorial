@@ -43,3 +43,15 @@ VS Code extensions (for Angular)
 		HTML tag záró elemének automatikus állítása.
 
 	Prettier
+
+
+NEWS
+
+	GoogleFonts Lesson 16
+
+	assets beállítás amgular.json-ben
+
+	Lesson 22 string interpolation and property binding
+
+	Atribute binding!!  [attr.aria-valuenow]="currentValue"
+	https://jakearchibald.com/2024/attributes-vs-properties/
