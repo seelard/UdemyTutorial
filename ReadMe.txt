@@ -55,3 +55,14 @@ NEWS
 
 	Atribute binding!!  [attr.aria-valuenow]="currentValue"
 	https://jakearchibald.com/2024/attributes-vs-properties/
+
+	class getter in property binding
+
+  Lesson 25 event binding
+
+	Lesson 28 Signals
+
+		computed(() => ... )
+
+	Lesson 30, 31 Imputs
+		Required, optional imputs
