@@ -1,3 +1,17 @@
+
+Install Node.js
+
+	- https://nodejs.org/en/download/current
+	- Browser-en kívül futtat javascript kódot
+	- Angular-nak alapvetően nem lenne rá szüksége
+		- de az Angular CLI (command line interface) használja 
+		- illetve vele együtt telepszik az npm (node package manager), amely kell többek közt az Angular telepítéséhez is
+
+Angular CLI (command line interface)
+
+	Az Angular alap eszköze, parancssorból lehet létrehozni, publikálni, ... Angular alkalmazásokat.
+
+
 Globally install Angular CLI v19
 
 	Uninstall existing Angular
@@ -32,6 +46,12 @@ Use a per-project (local) CLI version / NPX
 		npx ng update @angular/cli@19 @angular/core@19
 
 
+Angular app létrehozása
+
+	ng new first-angular-app
+		- paraméterek megadása (y/N)...
+
+
 VS Code extensions (for Angular)
 
 	Angular Language Service
@@ -43,6 +63,19 @@ VS Code extensions (for Angular)
 		HTML tag záró elemének automatikus állítása.
 
 	Prettier
+
+
+In a terminal
+
+	Run a project	
+		
+		npm start
+
+
+
+
+
+
 
 
 NEWS
