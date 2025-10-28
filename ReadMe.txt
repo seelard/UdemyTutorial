@@ -436,6 +436,108 @@ style binding in templates
 		...
 	}"
 
+Component Lifecycle
+
+	Egy komponens objektum létrejöttekor a konstruktora meghívódik, ami egy standard javascript/typescript viselkedés.
+	Vannak egyéb Angular függvények, amelyek adott időpontokban hívódnak.
+
+	ngOnChanges
+		A komponens valamely input property-je változik.
+		- Egy hashtáblában az érintett property(k) neve(i), mint key és a hozzájuk tartozó változást leíró objektum (SimpleChange)
+
+	ngOnInit
+		Konstruktor helyett ide ajánlott helyezni a legtöbb komponens inicializáló kódot.
+		Pl. egy input property inicializálása sem történik meg még a konstruktorban, innen viszont már elérhető.
+	
+	ngDoCheck
+		Angular change detection mechanizmusához kötődik. Meghívódik, ha bármi a UI-on aktualizálást igényel
+		(bárhol az alkalmazásban, nem csak az adott komponensben).
+		Így ez elég gyakran hívódik, ennek használata ritkán lehet szükséges.
+
+	ngAfterContentInit
+		A content jelenti a kívülről projektált elemeket, amelyek nincsenek közvetlenül a template-ben (ng-content).
+		Akkor hívódik, amikor minden projektált tartalom már inicializálásra került.
+
+	ngAfterContentChecked
+		Akkor hívódik, amikor minden projektált tartalmat már ellenőrzött az Angular change detection mechanizmusa.
+
+	ngAfterViewInit
+		A view jelenti a komponens template-ben lévő elemeket
+		Akkor hívódik, amikor minden template-ben lévő tartalom már inicializálásra került.
+
+	ngAfterViewChecked
+		Akkor hívódik, amikor minden template-ben lévő tartalmat már ellenőrzött az Angular change detection mechanizmusa.
+
+	ngOnDestroy
+		Az adott komponens láthatóságának kikapcsolásakor, amikor kikerül a renderelendő kompoinensek közül.
+		Pl. feltételes renderelés van a template-ben @if
+
+DestroyRef használata ngOnDestroy helyett
+
+	Egy újabb lehetőség, ami régebbi verziókban nincs (>=v16)
+
+	private destroyRef = inject(DestroyRef);
+
+	// Az OnItit-ben, a setInterval után egyből regisztrálható a megszüntető kód...
+  this.destroyRef.onDestroy(() => clearInterval(intervalId));
+
+	A komponens kódjában több helyen is használható (több helyről is fel lehet iratkozni az onDestroy-ra).
+
+	Talán ennyivel elegánsabb, mint az ngOnDestroy, ahol egy összevont helyen van minden megszüntető kód.
+	Itt pedig egymás mellett szerepelhet a létrehozás-megszüntetés ???
+
+ReturnType<>
+
+	SetInterval visszatérési értéke NodeJS.Timeout, ezzel problémája van az Angularnak
+  
+	Ez működik ebben az esetben:
+
+	  private intervalId?: ReturnType<typeof setInterval>;
+
+		intervalId = setInterval(...)
+
+Template variables
+
+	<form (ngSubmit)="onSubmit(titleInput)">
+		<app-control>
+			Title
+			<input name="title" id="title" #titleInput/>
+		</app-control>
+		...
+
+	#titleInput a teplate variable, amelynek #-el kell kezdődnie
+	A felhasználás helyén már nem kell a #: "onSubmit(titleInput)"
+
+	Itt egy konkrét HTMLElement kerül átadásra.
+
+	https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement
+
+	Jelen esetben HTMLInputElement, amelynek "value" property-je tartalmaza a beírt szöveget:
+
+	onSubmit(titleElement: HTMLInputElement) {
+    console.log(titleElement.value);
+  }
+
+	Az átadott paraméter a template-ben lehet egyből a value
+		"onSubmit(titleInput.value)"
+	Ekkor az egy string
+		onSubmit(title: string) {
+			console.log(titleElement);
+		}
+
+	Bármely template elemhez adható template variable.
+
+	<button AppButton #btn>
+		Logout
+		<span class="icon" ngProjectAs="icon">♠</span>
+	</button>
+
+	Ebben az esetben a btn egy ButtonComponent típusú lesz (saját button komponensre van állítva az AppButton attribútummal).
+
+	Az AppButton megadás nélkül
+	<button #btn>
+	simán HTMLButtonElement lenne a típusa
+
 
 NEWS
 
