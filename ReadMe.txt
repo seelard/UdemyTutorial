@@ -454,19 +454,23 @@ Component Lifecycle
 		(bárhol az alkalmazásban, nem csak az adott komponensben).
 		Így ez elég gyakran hívódik, ennek használata ritkán lehet szükséges.
 
-	ngAfterContentInit
-		A content jelenti a kívülről projektált elemeket, amelyek nincsenek közvetlenül a template-ben (ng-content).
-		Akkor hívódik, amikor minden projektált tartalom már inicializálásra került.
-
-	ngAfterContentChecked
-		Akkor hívódik, amikor minden projektált tartalmat már ellenőrzött az Angular change detection mechanizmusa.
-
 	ngAfterViewInit
 		A view jelenti a komponens template-ben lévő elemeket
 		Akkor hívódik, amikor minden template-ben lévő tartalom már inicializálásra került.
+		A @ViewChild és tsi által behúzott HTML elemek onnantól elérhetőak, amikor ez meghívódik,
+		tehát pl. az ngOnInit-ből még nem lesznek azok.
 
 	ngAfterViewChecked
 		Akkor hívódik, amikor minden template-ben lévő tartalmat már ellenőrzött az Angular change detection mechanizmusa.
+
+	ngAfterContentInit
+		A content jelenti a kívülről projektált elemeket, amelyek nincsenek közvetlenül a template-ben (ng-content).
+		Akkor hívódik, amikor minden projektált tartalom már inicializálásra került.
+		A @ContentChild és tsi által behúzott HTML elemek onnantól elérhetőak, amikor ez meghívódik,
+		tehát pl. az ngOnInit-ből még nem lesznek azok (valószínű még az ngAfterViewInit-ből sem).
+
+	ngAfterContentChecked
+		Akkor hívódik, amikor minden projektált tartalmat már ellenőrzött az Angular change detection mechanizmusa.
 
 	ngOnDestroy
 		Az adott komponens láthatóságának kikapcsolásakor, amikor kikerül a renderelendő kompoinensek közül.
@@ -537,6 +541,94 @@ Template variables
 	Az AppButton megadás nélkül
 	<button #btn>
 	simán HTMLButtonElement lenne a típusa
+
+@ViewChild, @ViewChildren
+
+	Hozzáférést biztosít a template elemeihez a ts kódban.
+	Az ngAfterViewInit meghívódásakor lesznek elérhetőek az így lekérdezett elemek, előtte még nem.
+
+	@ViewChild(selector) htmlItem
+
+	selector
+		- class name (ts osztály név (többnyire egy saját komponens), pl. ButtonComponent)
+			Ha több ilyen elem is van, akkor az elsőt adja vissza.
+		
+		- string, ami lehet egy template variable név, pl. 'form'
+			ahol a template pl. <form (ngSubmit)="onSubmit()" #form>...
+
+	@ViewChild('form') myForm?: ElementRef<HTMLFormElement>;
+		- Kell a ?, mert nem azonnal jön létre, pl. a konstruktorból még nem lenne elérhető
+			(illetve előfordulhat, hogy nincs a selector-nak megfelelő elem)
+
+	  onSubmit() {
+ 	   this.myForm?.nativeElement.reset();  // Szintén kell a ?, 
+		 																			// illetve a nativeElement (wrapper-ben így elérhető a konkrét elem)
+																					// reset a HTMLFormElement metódusa
+  	}
+
+	@ViewChildren
+		- Ha több elem is megfelelhet a selector-nak és szükség is van rájuk
+		
+		@ViewChildren('myDiv') myDivs!: QueryList<ElementRef<HTMLDivElement>>;
+
+	ElementRef
+		Wrapper egy natív DOM elemhez
+		Egy biztonságosabb hozzáférést biztosít a valódi HTML elemekhez.
+
+	QueryList
+		Egy élő gyűjtemény (ilyet ad vissza a @ViewChildren és @ContentChildren), amely lekérdezés után is változhat,
+		pl. egy @if vagy @for (*ngIf, *ngFor) hatására módosul a megjelenített elemek száma.
+
+
+	viewChild(), viewChildren() függvények (signal)
+		Újabb lehetőség a @ViewChild, @ViewChildren helyett
+
+		viewChild(selector)
+
+		private myForm = viewChild<ElementRef<HTMLFormElement>>('form');
+
+	 	this.myForm()?.nativeElement.reset(); // Kell a ?
+
+		// required alkalmazásával
+		private myForm = viewChild.required<ElementRef<HTMLFormElement>>('form');
+
+	 	this.myForm().nativeElement.reset(); // Nem kell a ?
+
+@ContentChild, @ContentChildren
+
+	A @ViewChild-hoz hasonlóan hozzáférést biztosít a template elemeihez a ts kódban.
+	Lehetnek a template-be projektált részek (ng-content), amelyek tartalma nem részei a template-nek.
+	Ezek esetében a @ContentChild használható
+
+	Az ngAfterContentInit meghívódásakor lesznek elérhetőek az így lekérdezett elemek, előtte még nem.
+
+	Ugyanúgy van contentChild() és contentChildren() függvény (signal) az újabb verziókban.
+
+	Az egyes elemek itt is azonosíthatóak többek közt template variable megadással.
+	Itt a template variable-nek a beágyazó résznél kell szerepelnie
+
+  <app-control>
+    Title
+    <input name="title" id="title" #myInput/>
+  </app-control>
+
+  <app-control>
+    Request
+    <textarea name="request" id="request" rows="3" #myInput></textarea>
+  </app-control>
+
+	Ebben az esetben ugyanaz a template variable több különböző helyen is szerepel!!!
+	Magában a komponensben mindig csak az egyik, mivel mindegyik egy külön komponens.
+
+  Komponens template (app-control):
+
+  <ng-content />
+  <ng-content select="input, textarea" />
+
+	A ControlComponent-ben a 'myInput' template variable használható a @ContentChild paramétereként.
+	A kapott elem típusa HTMLInputElement | HTMLTextAreaElement.
+
+
 
 
 NEWS
