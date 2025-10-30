@@ -476,6 +476,25 @@ Component Lifecycle
 		Az adott komponens láthatóságának kikapcsolásakor, amikor kikerül a renderelendő kompoinensek közül.
 		Pl. feltételes renderelés van a template-ben @if
 
+	afterRender (afterEveryRender >=v20), afterNextRender
+		Angular 16-tó elérhetőek, v20-tól afterRender -> afterEveryRender-re átnevezve
+
+		Nem a többi life cycle hook metóduson keresztül érhetőek el (ngOnInit,...), hanem a kontruktorban.
+
+		constructor() {
+			// A regisztrált callback minden UI változáskor meghívódik (amikor újra kell renderelni valamit)
+			afterRender(() => {
+				console.log('EVERY');
+			});
+
+			// A regisztrált callback a következő UI változáskor meghívódik egyszer (amikor újra kell renderelni valamit)
+			afterNextRender(() => {
+				console.log('NEXT');
+			});
+		}
+
+		NEM CSAK AZ ADOTT KOMPONENSRE ÉRTENDŐ, HANEM AZ EGÉSZ WEB SITE-RA (ANGULAR APPLICATION-ra)!
+
 DestroyRef használata ngOnDestroy helyett
 
 	Egy újabb lehetőség, ami régebbi verziókban nincs (>=v16)
@@ -628,7 +647,81 @@ Template variables
 	A ControlComponent-ben a 'myInput' template variable használható a @ContentChild paramétereként.
 	A kapott elem típusa HTMLInputElement | HTMLTextAreaElement.
 
+effect()
+	LifeCycle related függvény, de inkább signal-okhoz tartozik.
 
+	Egy komponensben alkalmazott signal esetén a template-ben lévő (bind-olt) elemek automatikusan követik
+	a signal változásait (automatikusan feiratkoznak rá).
+
+	Arra használható az effect(), ha a ts kódban szeretnénk értesülni a változásról.
+
+	effect(() => {
+		console.log(this.mySignal());
+	})
+
+	Az effect paraméterében kap egy callback függvényt, az abban szereplő signal-ok bármelyikének változása esetén meghívódik.
+
+	const count = signal(0);
+	const name = signal('Alice');
+
+	// Effect 1 — depends on count
+	effect(() => {
+		console.log('Count changed:', count());
+	});
+
+	// Effect 2 — depends on name
+	effect(() => {
+		console.log('Name changed:', name());
+	});
+
+	// Effect 3 — depends on both
+	effect(() => {
+		console.log(`Combined: ${name()} - ${count()}`);
+	});
+
+	CleanUp logic in effect()
+
+	effect((onCleanup) => {
+		const tasks = getTasks();
+		const timer = setTimeout(() => {
+			console.log(`Current number of tasks: ${tasks().length}`);
+		}, 1000);
+		onCleanup(() => {
+			clearTimeout(timer);
+		});
+	});
+
+	- a getTasks() egy signal-t ad vissza (ez lehet a figyelt signal, amely változására hívódik ez a callback)
+	- onCleanup() regisztrál egy másik callback függvényt (ez a külső callback paraméterében meg is marad)
+		Ez lehetőséget biztosít a következő változáskor, hogy először ez a függvény fusson le.
+	- Az onCleanup meghívásra kerül, ha az effect megszűnik (destroyed), ami pl. a komponens megszünésekor történik.
+
+@for fallback ág -> @empty
+
+	Ha nincs eleme a @for-ban lévő listának (tömbnek)
+
+	@for (ticket of tickets; track ticket.id) {
+		<li>
+			<app-ticket/>
+		</li>
+	} @empty {
+		<p>No tickets available</p>
+	}
+
+@for helper variables
+
+	$first (true/false)
+	$last (true/false)
+	$odd (true/false)
+	$even (true/false)
+	$count (elemszám)
+	$index (aktuális elem indexe)
+
+TODO:
+
+  - map... Lesson 144
+
+	- Custom two-way binding Lesson 147 + 148
 
 
 NEWS
