@@ -717,11 +717,420 @@ effect()
 	$count (elemszám)
 	$index (aktuális elem indexe)
 
-TODO:
 
-  - map... Lesson 144
+Custom two-way binding (ngModel használata nélkül)
+	(v17-től már használható a model() függvény)
 
-	- Custom two-way binding Lesson 147 + 148
+	app.component.ts
+		Itt van a mindenfelé bind-olt rectSize property, ami egy sima property (lehetne signal is, de nem az)
+
+		export class AppComponent {
+			rectSize = {
+				width: '100',
+				height: '100',
+			};
+		}
+
+	app.component.html
+		A komponensen belüli input mezőkhöz ngModel-es two-way binding van
+		A rect komponens felé van a custom two-way binding, itt is a kettős zárójel használatos [(size)]
+
+		<div id="inputs">
+			<p>
+				<label>Width</label>
+				<input type="number" step="1.0" [(ngModel)]="rectSize.width" />
+			</p>
+			<p>
+				<label>Height</label>
+				<input type="number" step="1.0" [(ngModel)]="rectSize.height" />
+			</p>
+		</div>
+
+		<app-rect [(size)]="rectSize"/>
+
+		model() alkalmazása esetén
+			[(size)]="rectSize", a size egy signal a rectSize sima property, de az Angular ezt kezeli
+
+	rect.component.html
+		Simán használva van az @Input-tal érkező size
+
+		<div
+			id="rect"
+			[style.width]="size.width + 'px'"
+			[style.height]="size.height +'px'"
+			(click)="onReset()"
+		></div>
+
+		model() alkalmazása esetén
+			[style.width]="size().width + 'px'"
+			[style.height]="size().height +'px'"
+			- kellenek a zárójelek (size()), mivel size itt signal
+
+	rect.component.ts
+		A two-way binding-hoz kell egy @Input és egy @Output a két irányhoz.
+		Az @Input a szokásos, itt érkezik az érték.
+		Az @Output esetén az ELNEVEZÉS KÖTÖTT, size -> sizeChange (Change utótag)
+
+		@Input({ required: true }) size!: { width: string; height: string };
+		@Output() sizeChange = new EventEmitter<{ width: string; height: string }>();
+
+		onReset() {
+			this.sizeChange.emit({
+				width: '200',
+				height: '100'
+			});
+		}
+
+		model() alkalmazása esetén
+		  size = model.required<{ width: string; height: string }>();
+
+			- @Input/@Output helyett model() függvény, ami egy signal-t ad.
+
+			onReset() {
+				this.size.set({
+					width: '200',
+					height: '100'
+				});
+			}
+
+			- emit helyett size signal beállítása (set)
+
+Directives
+
+	Olyan Angular elemek, amelyek valamilyen plusz működést adnak a felhasználás helyén az adott elemhez.
+
+	Pl. ngModel, egy input HTML elemben használható (többek közt) two-way binding-hoz.
+	Ehhez természetesen sok háttérműködés kell,	hogy csinálja a dolgát.
+	A direktíva használatával az Angular biztosítja a szolgáltatást.
+
+	Egy direktíva is egy Angular kód, hasonlóan egy komponens vagy service-hez.
+
+	@Directive{
+		selector:...
+		providers:...
+		exportAs:...
+	}
+	export class NgModel extends... {
+		...
+	}
+
+  Attribute Directives
+		Pl. az ngModel egy attribute directive, mivel egy meglévő HTML elemen belül van, mint attribútum.
+
+	Structural Directives
+		Pl. *ngIf, *ngFor
+		Ez szintén egy HTML elemen belül van, de a * megkülönbözteti
+		Míg az attribute directives plusz működéseket eredményeznek (pl az input elem esetén), de nem változtatják meg 
+		DOM-on belüli elhelyezkedést, addig a structural directivák a DOM-beli struktúrát befolyásolják 
+
+		Az újabb Angular verziókban már a @if és @for használatos, amelyek nem direktívák.
+		De a régebben készült Angular projektekben még ezek vannak...
+
+Custom Attribute Directive létrehozása
+
+	ng generate directive SafeLink
+
+	vagy kézzel is létre lehet hozni: safe-link-directive.ts
+
+	import { Directive } from "@angular/core";
+
+	@Directive({
+		selector: 'a[appSafeLink]',
+		standalone: true,
+		host: {
+			'(click)': 'onConfirmLeavePage($event)'
+		}
+	})
+		
+	export class SafeLinkDirective {
+
+		constructor() {
+			console.log('SafeLinkDirective is active!');
+		}
+		
+		onConfirmLeavePage(event: MouseEvent) {
+			const sure = window.confirm('Are you sure?');
+
+			if (sure) {
+				return;
+			}
+
+			event?.preventDefault();
+		}
+	}
+
+	A példa anchor elem viselkedésének kiterjesztése.
+
+	Amikor kattintanak rá, feldob egy kérdést, hogy tuti el akar-e navigálni.
+	Ha nem, akkor preventDefault() hívás, ami így nem hajtja végre az átnavigálást.
+
+	selector:	Úgy használatos, mint a @Component-nél,
+		itt attribute selector van (a[appSafeLink]), kiegészítve az a-val, ami css szerűen jelzi,
+		hogy <a> elemek esetén, amelyekre alkalmazva van az appSagfeLink attribútum.
+
+	<ul>
+		<li>
+			<a href="https://angular.dev" appSafeLink>Angular Documentation</a>
+		</li>
+		<li>
+			<a href="https://academind.com/courses" appSafeLink>Academind Courses</a>
+		</li>
+		<li>
+			<a href="https://www.google.com/search?q=angular" appSafeLink>Google</a>
+		</li>
+	</ul>
+
+	host: property, ahogy a @Component-nél itt lehet név-érték párokkal kiegészíteni a template-ben lévőket.
+		Ez lehet event is (click). Így minden ilyen anchor-hoz hozzáíródik ezen event kezelése...
+
+		- Itt használható a @HostListener, ahogy a @Component-nél.
+
+Imput átadása Custom Directive-nek
+
+  <a href="https://angular.dev" appSafeLink="myapp-docs-link">Angular Documentation</a>
+
+	- "myapp-docs-link" az átadandó input
+
+	A komponensben kell egy @Input vagy input()
+
+	  queryParam = input('myapp'); // default a 'myapp' ha nem lenne átadott input
+
+	A név queryParam, így azt egyeztetni kell az átadáshoz:
+
+  	<a href="https://angular.dev" appSafeLink queryParam="myapp-docs-link">Angular Documentation</a>
+			- nem kell a szögletes zárójel [queryParam], mivel nem egy Angular property van bind-olva, hanem egy konstans érték.
+
+		Ha nem szeretnénk nevet megadni a template-ben
+			- property neve ugyanaz legyen, mint az attribútum neve: appSafeLink (queryParam helyett)
+			- alias használható
+			  queryParam = input('myapp', { alias: 'appSafeLink'});
+			- Akkor mehet a eredeti fenti megadási forma
+			  <a href="https://angular.dev" appSafeLink="myapp-docs-link">Angular Documentation</a>
+
+
+		onConfirmLeavePage(event: MouseEvent) {
+			const sure = window.confirm('Are you sure?');
+
+			if (sure) {
+				(event.target as HTMLAnchorElement).href += '?from=' + this.queryParam();
+
+				return;
+			}
+
+			event?.preventDefault();
+		}
+
+Dependency Injection in Directives
+
+	Ugyanúgy alkalmazható, ahogy komponensek esetén, pl. a host element beadása a direktívába:
+
+		private hostElementRef = inject<ElementRef<HTMLAnchorElement>>(ElementRef);
+
+		- Itt van extra információ is arról milyen helyen használható a direktíva, így azzal kiegészíthető
+			<ElementRef<HTMLAnchorElement>>
+
+		onConfirmLeavePage(event: MouseEvent) {
+			const sure = window.confirm('Are you sure?');
+
+			if (sure) {
+	      this.hostElementRef.nativeElement.href += '?from=' + this.queryParam();
+
+				return;
+			}
+
+			event?.preventDefault();
+		}
+
+Custom Structural Directive létrehozása
+
+	Pl. egy új direktíva (auth):
+		ng g d auth/auth
+
+	app-component-html-ben:
+  	Az @if helyett valahogy így szeretnénk használni,
+		a paragrafus az átadott érték szerint jelenik meg vagy sem.
+
+		<p *appAuth="admin">Only admins should see this!</p>
+
+		app.component.ts-ben az imports-hoz kell adni az AuthDirective osztályt!
+
+		A * nélküli esetben eddig ez egy input átadás, ahogy az attribute direktívánál:
+
+		<p appAuth="admin">Only admins should see this!</p>
+
+	auth.directive.ts:
+
+		export class AuthDirective {
+			private authService = inject(AuthService);
+			private templateRef = inject(TemplateRef);
+			private viewContainerRef = inject(ViewContainerRef);
+			userType = input.required<Permission>({ alias: 'appAuth'});
+
+			constructor() {
+
+				// Két signal is van, ha valamelyik változik, ez a kód lefut...
+				effect(() => {
+					if (this.authService.activePermission() === this.userType()) {
+						console.log('SHOW');
+					}
+					else {
+						console.log('NOT SHOW');
+					}
+				});
+			}
+		}
+
+	Most már csak az kell, hogy a megfelelő hatás a DOM elemeken is látszódjon,
+	amitől Structural lesz a Directive.
+
+		<ng-template appAuth="admin">
+			<p>Only admins should see this!</p>
+		</ng-template>
+
+		Az <ng-template> egy speciális Angular elem, az átala tartalmazott rész alapból nem jelenik meg.
+		Így lehetőség van annak megjelenítésének vezérlésére.
+
+	Két újabb elemet kell injektálni:
+			private templateRef = inject(TemplateRef);
+			private viewContainerRef = inject(ViewContainerRef);
+
+		- TemplateRef: az ng-template által tartalmazott elem(ek)
+		- ViewContainerRef: A hely ahová ahol a template elemek megjelennek (vagy nem)
+
+		Ezek használhatóak a DOM megjelenítés vezérlésére:
+
+    effect(() => {
+      if (this.authService.activePermission() === this.userType()) {
+        this.viewContainerRef.createEmbeddedView(this.templateRef);
+      }
+      else {
+         this.viewContainerRef.clear();
+      }
+    });
+
+		A * előtag egy szintaktikai megoldás, aminek hatására az <ng-template> beágyazás automatikusan megtörténik.
+		(*ngIf, *ngFor is ilyen)
+
+    <p *appAuth="'admin'">Only admins should see this!</p>
+
+		- Annyi változik, hogy itt automatikusan property binding-ot vár (mintha [] közt lenne),
+			ezért a string konstantst aposztrófok közé kell rakni.
+
+Host Directives & Composition
+
+	Előfordul olyan eset, hogy egy adott direktíva funkcionalitására több különböző komponensnek vagy másik 
+	direktívának is szüksége van (fixen használja azt)
+
+	Erre használható a hostDirectives property:
+
+	Direktíva használ másik direktívát:
+
+	@Directive({
+		selector: 'a[appSafeLink]',
+		standalone: true,
+		host: {
+			'(click)': 'onConfirmLeavePage($event)'
+		},
+		hostDirectives: [LogDirective]
+	})
+
+	Komponens használ másik direktívát:
+
+	@Component({
+		selector: 'app-auth',
+		standalone: true,
+		imports: [FormsModule],
+		templateUrl: './auth.component.html',
+		styleUrl: './auth.component.css',
+		hostDirectives: [LogDirective]
+	})
+
+	Ebben az esetben a selector atribútum nem jelenik meg a template-ben, hanem fixen beépül.
+
+Pipes
+
+	Módszer a megjelenített adatok átalakítására (transform)
+
+	<td>{{ result.total | currency }}</td>
+
+	currency egy beépített pipe a pénznemekre.
+
+	Van néhány egyéb beépített pipe.
+
+	<td>{{ CurrentDate | date:'medium' }}</td>
+
+	Kettősponttal elválasztva adhatók át paraméterek.
+
+  <p>New York: {{ currentTemperaturs.newYork | number: '1.1-2'}}</p>
+
+	: '1.1-2'
+		- Minimum számjegyek száma a tizedespont előtt
+		- Minimum számjegyek száma a tizedespont után
+		- Maximum számjegyek száma a tizedespont után
+
+Custom pipe létrehozása
+
+	ng generate pipe MyPipe
+
+	pl. temperature.pipe.ts
+
+	import { Pipe, PipeTransform } from "@angular/core";
+
+	@Pipe({
+		name: 'temp', // Az a név, ami a template-ben szerepelhet
+		standalone: true,
+	})
+
+	// A Pipe osztálynak meg kell valósítania a PipeTransform interface-t
+	// Ez megköveteli a transform függvényt.
+	export class TemperaturePipe implements PipeTransform {
+
+		transform(value: any, ...args: any[]) {
+
+			return value + ' - transformed';
+		}
+	}
+
+	- paraméterek típusa szükség szerint szűkíthető
+	- args tetszőleges számú paraméter lehet (lehet, hogy nincs egy sem)
+
+    	transform(value: string | number, inputType: string, outputType?: string) {
+				- az inpuType kötelező (legalább egynek lenni kell a template-ben, különben kiabál a fordító)
+				- az outputType opcionális
+
+	  transform(value: string | number) {
+			let val: number;
+
+			if (typeof value === 'string') {
+				val = parseFloat(value);
+			}
+			else {
+				val = value;  
+			}
+
+			const outputTemp = val * (9 / 5) + 32;
+
+			return `${outputTemp} °F`
+		}
+
+		<p>New York: {{ currentTemperaturs.newYork | temp: 'cel' : 'fah'}}</p>
+
+Pipe-ok láncolása
+
+	Tetszőlegesen egymás után helyezhetőek a pipe-ok, de a kimeneti és a bemeneti típusokat egyeztetni kell.
+
+	Pl. a fenti hőmérséklet kijelzés tizedes jegy beállítására kézenfekvő lenne a DecimalPipe
+
+		<p>New York: {{ currentTemperaturs.newYork | number: '1.1-2' | temp: 'cel' : 'fah'}}</p>
+
+	Az egyik probléma, hogy a decimalPipe-nak number | null kimenete van.
+	Ez orvosolható a temp pipe típus kiegészítésével (null-t is fogadjon)
+
+	Mégsem hozza a megfelelő eredményt, mivel a hőmérséklet átszámítás a tizedesjegy beállítás 
+	után van, ahol az eredmény nem garantálja a tizedesjegyek számát.
+
+	Itt célszerűbb a temp pipe-ban megoldani ezt, pl.: toFixed(2)
+
 
 
 NEWS
