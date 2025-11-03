@@ -1131,6 +1131,146 @@ Pipe-ok láncolása
 
 	Itt célszerűbb a temp pipe-ban megoldani ezt, pl.: toFixed(2)
 
+Tömb rendezett megjelenítése pipe-pal
+
+	// A value típusát a kívánt típustra kell állítani.
+	transform(value: string[] | number[], direction: 'asc' | 'desc' = 'asc'): (string | number)[] {
+
+		let sorted = [...value]; // ez egy (string | number)[] típust ad vissza, a return type ezt kapta.
+		
+		if (direction === 'asc') {
+			sorted.sort((a, b) => {
+				return a > b ? 1 : -1;
+			});
+		}
+		else {
+			sorted.sort((a, b) => {
+				return b > a ? 1 : -1;
+			});
+		}
+
+		return sorted;
+	}
+
+	<ul>
+		@for (temperature of historicTemperatures | sort : 'desc'; track temperature) {
+			<li (click)="onReset($index)">{{ temperature }}</li>
+		}
+	</ul>
+
+	Pipe lehetséges káros mellékhatásai
+
+		Ha az eredeti tömb valamelyik eleme változik, nem kerül frissítésre a kijelzés.
+		Ha nem lenne pipe, akkor működne, akkor reagál rá a change detection.
+		Pipe esetében viszont azért, hogy ne renderelődjön túl sokszor újra a kijelzés egy cache-ből dolgozik.
+		A pipe csak akkor aktiválódik, ha maga a tömb referencia módosul, ha csak egy eleme, akkor nem.
+
+		Erre lehet egy megoldás ha minden esetben új tömböt hozunk létre
+		vagy a pure property:
+
+			@Pipe({
+				name: 'sort',
+				standalone: true,
+				pure: false // default true
+			})
+
+			Ekkor minden lehetséges esetben lefut a pipe.
+
+		A pipe-pal rendezett kijelzés másik hátránya, hogy az index-ek elcsúsznak az eredeti és a kijelzett tömbb esetén.
+		Ez hibaforrás lehet.
+		Megoldásként:
+			- index helyett egyéb azonosító használata
+			- helyben rendezett tömb megjelenítése pipe helyett
+
+Services Deep Dive
+
+	export class TasksService{ 
+		private tasks = signal<Task[]>([]);
+		allTasks = this.tasks.asReadonly();
+	
+		addTask(taskData: { title: string;  description: string }) {
+			const newTask: Task = {
+				...taskData,
+				id: Math.random().toString(),
+				status: 'OPEN'
+			}
+			this.tasks.update((oldTasks) => [...oldTasks, newTask]);
+		}
+
+		updateTaskStatus(taskId: string, newStatus: TaskStatus) {
+			this.tasks.update((oldTask) => oldTask.map((task) =>
+				task.id === taskId ? { ...task, status: newStatus } : task));
+		}
+	}
+
+	tasks - szolgáltatott adatok tároló tömbje
+	
+	allTasks - asReadonly(): egy writable signal readonly verzióját adja vissza
+		Biztosítja, hogy a service-en kívülről ne lehessen közvetlenül módosítani
+
+	addTask - új task hozzáadása
+		Célszerű új tömb létzrehozása az Angular change detection segítésére.
+	
+	updateTaskStatus - szintén új tömböt hoz létre, a módosított elem új objektum lesz.
+
+Service registration
+
+	Valahogy tudatni kell az Angularral, hogy mely részek az injektálhatóak.
+	Több háttér elem is van, amely ilyen feladatokat végez.
+
+	Application root / EnvironmentInjector
+
+		A legáltalánosabb megoldás a service definícióban használt:
+
+			@Injectable( {
+				providedIn: 'root'
+			})
+
+		Másik lehetőség a main.ts-ben:
+
+			bootstrapApplication(AppComponent, {
+				providers: [TasksService]
+			}).catch((err) => console.error(err));
+
+			Hozzáadott rész: { providers: [TasksService] }
+
+		Különbség a kettő között, hogy a bootstrap-es esetben a service kód teljes egészében hozzáadásra kerül,
+		míg a másik esetben lehetősége van az Angular-nak optimalizálásra (csak a szükséges kódok használatára).
+
+	ElementInjector
+
+		Az @Injectable helyett egy olyan komponensben, amely tartalmazza azokat a komponenseket, 
+		amelyeknek szükségük van az adott service-re:
+
+		@Component({
+			selector: 'app-tasks',
+			standalone: true,
+			templateUrl: './tasks.component.html',
+			imports: [NewTaskComponent, TasksListComponent],
+			providers: [TasksService],
+		})
+
+		providers property megadása.
+		Csak ebben a komponensben és az általa tartalmazott (child) komponensekben lesz elérhető a service,
+		pl. az AppComponent-ben nem.
+
+		Másik fontos dolog az ElementInjector-ral, hogy ha az adott komponens több példányban szerepel az 
+		applikációban, akkor mindegyiknek külön service-e lesz (két külön service példány).
+
+Service injektálása service-be
+
+	- Application root / EnvironmentInjector-nál leírt két módszer használható
+	- Az ElementInjector nem működik ebben az esetben
+
+Angular DevTools a browser-ben tartalmaz egy Injector Tree eszközt...
+
+
+TODO:
+	Lesson 187-189
+	Custom DI tokens
+	Saját Dependency Injection token létrehozása
+	Egyéb (nem service) elemek injektálhatóvá tétele.
+		- Kell hozzájuk saját DI token...
 
 
 NEWS
