@@ -1226,7 +1226,7 @@ Service registration
 				providedIn: 'root'
 			})
 
-		Másik lehetőség a main.ts-ben:
+		Másik lehetőség a main.ts-ben (ebben az esetben nincs @Injectable direktíva alkalmazva):
 
 			bootstrapApplication(AppComponent, {
 				providers: [TasksService]
@@ -1264,13 +1264,200 @@ Service injektálása service-be
 
 Angular DevTools a browser-ben tartalmaz egy Injector Tree eszközt...
 
+Custom DI Tokens (Dependency Injection Tokens)
 
-TODO:
-	Lesson 187-189
-	Custom DI tokens
-	Saját Dependency Injection token létrehozása
-	Egyéb (nem service) elemek injektálhatóvá tétele.
-		- Kell hozzájuk saját DI token...
+	Ha a main.ts-beli service regisztrációt nézzük:
+
+	bootstrapApplication(AppComponent, {
+		providers: [TasksService]
+	}).catch((err) => console.error(err));
+
+	A providers ilyen megadása egy szintaktikai rövidítése annak, ami valójában van:
+	Angular készít egy Provider objektumot a TasksService helyén (a providers property típusa ezt várja).
+	Ez tartalmaz egy injection token-t és így azonosít egy injektálható elemet.
+
+	A rövidített megadásban a TasksService megadás lesz a token.
+	A felhasználás helyén az inject paramétere is egy ProviderToken típus, de ott is a TasksService van megadva.
+
+	Ilyen tokent magunk is létrehozhatunk.
+
+	main.ts-ben
+	
+	// export kell, mert szükség lesz rá kívül is
+	// A paraméter description string tetszőleges.
+	export const TaskServiceToken = new InjectionToken('tasks-service-token');
+
+	bootstrapApplication(AppComponent, {
+		providers: [{provide: TasksServiceToken, useClass: TasksService}  ]
+	}).catch((err) => console.error(err));
+
+	A providers megadásnál a rövidített megadás helyett kifejtjük az objektumot
+		- provide: saját token
+		- useClass: A service osztály (a useClass helyett lehet más is, de most egy osztályról van szó (ami  a service))
+
+	A felhasználás helyén:
+
+	- inject
+		  private tasksService = inject<TasksService>(TasksServiceToken);
+
+	- in constructor
+		  // Szükséges az @Inject decorator
+			constructor( @Inject(TasksServiceToken) private tasksService: TasksService) {}
+
+	Ebben az esetben ez csak egy demonstráció, hogy hogyan lehet saját tokent létrehozni,
+	mivel itt a rövidített megadást célszerű használni (de a háttérben ekkor is ez van).
+
+	Lehetséges azonban nem class jellegű elemeket is injektálhatóvá tenni, amihez saját token kell.
+
+	Pl.:
+
+		Egy konstans tömb, amely az applikáció több részén is használható.
+		Tegyük ezt injektálhatóvá.
+
+		task.model.ts
+
+		// Típus definíció a jobb átláthatóságért.
+		export type TaskStatusOptions = {
+			value: 'open' | 'in-progress' | 'done';
+			taskStatus: TaskStatus;
+			text: string;
+		}
+
+		// Injection token
+		export const TASK_STATUS_OPTIONS = new InjectionToken<TaskStatusOptions[]>('task-status-options');
+
+		// A tömb amit injektálhatóvá teszünk
+		export const TaskStatusOptions: TaskStatusOptions[] = [
+			{
+				value: 'open',
+				taskStatus: 'OPEN',
+				text: 'Open'
+			},
+			{
+				value: 'in-progress',
+				taskStatus: 'IN_PROGRESS',
+				text: 'In-progress'
+			},
+			{
+				value: 'done',
+				taskStatus: 'DONE',
+				text: 'Completed'
+			},
+		];
+
+		// Provider definíció, ami a felhasználás helyén kell (ez lehetne ott is, de így rendezettebb)
+		export const taskStatusOptionsProvider: Provider = {
+			provide: TASK_STATUS_OPTIONS,
+			useValue: TaskStatusOptions 
+		};
+
+		useValue van a useClass helyett mivel itt nem egy osztályról van szó, hanem egy konkrét tömbről.
+
+		tasks-list.component.ts
+
+		- Elég ide regisztrálni az injektálható elemet, mivel itt és egy child-ban lesz felhasználva.
+
+		@Component({
+			selector: 'app-tasks-list',
+			standalone: true,
+			templateUrl: './tasks-list.component.html',
+			styleUrl: './tasks-list.component.css',
+			imports: [TaskItemComponent],
+			providers: [taskStatusOptionsProvider] // Kívül definiált provider, elérhető lesz itt és child komponensekben
+		})
+
+	  taskStatusOptions = inject<TaskStatusOptions[]>(TASK_STATUS_OPTIONS);
+
+		Ezzel használható a template-ben a tömb:
+
+    @for (option of taskStatusOptions; track option.value) {
+      <option [value]="option.value">{{ option.text }}</option>
+    }
+
+		A child komponensben már csak inject kell, ott nem kell külön regisztrálni
+		és ott is elérhető lesz a template-ben...
+
+Change Detection mechanisms
+
+	zone.js
+		- Minden template binding-ban szereplő elemet, event lister-eket az egész applikációban figyeli
+			hogy szükséges-e új érték beállítása a DOM számára
+
+		- A példa alkalmazásban getter-ek vannak bind-olva (interpolation) {{ debugOutput }} minden komponensben külön.
+			Bárhol változás történik a getter-ekben lévő log mindenhol jelez, hogy belefutott a végrehajtás
+			független attól melyik komponensben van (ezt az Angular végzi, amikor is ellenőrzi volt-e változás).
+
+		- Ez jó sokszor megtörténik a háttérben...
+
+		- Éppen ezért template-be bindolt getter-ekben nem célszerű komplex műveleteket végezni.
+
+		- A pipe-oknál említett (by default) cache megoldás is ezért van (ne fusson le indokolatlanul sokszor)
+
+		Change Detection during Development
+
+			A példa programban észlelhető, hogy minden log kétszer szerepel és valóban minden getter kétszer kerül ellenőrzésre.
+			Ez csak development mode-ban van így és az Angular csinálja, segíteni felderíteni olyan hibákat, amikor egy
+			change detection után történik valaminek a módosítása (és valószínűleg már nem jutna érvényre a UI-n).
+		
+      Ekkor jelentkezik az ExpressionChangedAfterItHasbeenCheckedError
+			Ha a két egymás utáni ellenőrzés nem ugyanazt az értéket mutatja erre figyelmeztet,
+			(lehet az adott property valamilyen nem megfelelő helyen történő módosítása a kódban, ami potenciális hiba).
+		
+		Avoiding Zone Pollution (egyéb optimalizálási lehetőség)
+
+			- Lehetőség van kódrészeket kizárni a change detection ellenőrzése alól.
+				A példában egy timer van, ami nem csinál UI-t érintő módosításokat mégis kiváltja az ellenőrzés,
+				mivel event-et generál és az Angular nem nézi mi van a benne lévő kódban.
+
+			private zone = inject(NgZone)
+
+			ngOnInit() {
+				this.zone.runOutsideAngular(() => {
+					setTimeout(() => {
+						console.log('Time expired.');
+					}, 5000);
+				});
+			}
+
+		OnPush Change Detection strategy
+
+			Az alapértelmezett, amikor mindent (is) figyel folyamatosan (ChangeDetectionStrategy.Default).
+
+			@Component({
+				selector: 'app-messages',
+				standalone: true,
+				templateUrl: './messages.component.html',
+				styleUrl: './messages.component.css',
+				imports: [MessagesListComponent, NewMessageComponent],
+				changeDetection: ChangeDetectionStrategy.OnPush
+			})
+
+			Komponensenként beállítható.
+
+			Az adott komponensre és annak child-jaira 3 esetben fut le change detection
+				- ha a komponensben vagy valamelyik child komponensben event váltódik ki
+				- ha a komponensben valamelyik input mező módosításra kerül
+				- manuális kezdeményezésre
+
+			Végül valószínű minden komponensre érdemes ezt beállítani, ha ez a módszer a választott.
+
+
+			signal-ok is alkalmazhatóak, azokra is működik.
+
+			Adatok megosztása komponensek közt OnPush esetben
+
+				- Adattárolás service-ben, adatok használata komponensekből
+
+					- signal használatával működik, azaz minden módosítás észlelésre kerül és megjelenik az UI-n
+					
+					- signal használata nélkül nem működik helyesen
+
+							TODO: Lesson 202, 203
+							Manuális Change Detection kiváltás (ChangeDetectorRef), service-ből adateléréshez pedig RxJS szükséges
+
+Lesson 204 async Pipe
+Lesson 205 Zoneless
+					
 
 
 NEWS
