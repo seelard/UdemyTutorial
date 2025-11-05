@@ -1437,27 +1437,245 @@ Change Detection mechanisms
 			Az adott komponensre és annak child-jaira 3 esetben fut le change detection
 				- ha a komponensben vagy valamelyik child komponensben event váltódik ki
 				- ha a komponensben valamelyik input mező módosításra kerül
+					- signal-okesetén is
 				- manuális kezdeményezésre
 
 			Végül valószínű minden komponensre érdemes ezt beállítani, ha ez a módszer a választott.
-
 
 			signal-ok is alkalmazhatóak, azokra is működik.
 
 			Adatok megosztása komponensek közt OnPush esetben
 
-				- Adattárolás service-ben, adatok használata komponensekből
+				- Adattárolás service-ben, adatok használata komponensekből service-en keresztül (OnPush beállítás esetén!)
 
 					- signal használatával működik, azaz minden módosítás észlelésre kerül és megjelenik az UI-n
 					
-					- signal használata nélkül nem működik helyesen
+					- signal használata nélkül nem működik helyesen 
 
-							TODO: Lesson 202, 203
-							Manuális Change Detection kiváltás (ChangeDetectorRef), service-ből adateléréshez pedig RxJS szükséges
+						Mivel a fenti 3 eset egyike sem teljesül
+						- Nem váltódik ki event
+						- Nem változik input mező (signal nincs)
+						- Nincs manuális change detection kezdeményezés
 
-Lesson 204 async Pipe
-Lesson 205 Zoneless
-					
+						Manuális change detection kezdeményezést kell alkalmazni az adatok változása esetén
+
+							Az Angular eszköze erre a célra
+
+							  private cdRef = inject(ChangeDetectorRef);
+								// Ezt abban a komponensben kell alkalmazni, ahol a változásra reagálni kell az UI-nak (nem a service-ben).
+
+							Kérdés, hogyan szerzünk tudomást az adatok változásáról, mikor kell aktiválni az eszközt?
+							A service-ben lévő adatok változásáról kell értesülni az érintett komponensben, ahol kiváltható a change detection.
+
+							Erre a célra az Angular-ba integrált külső library használható: RxJS
+							Third party library, de egy elég sokat használt része az Angular-nak.
+
+							Itt azt a tulajdonságát használhatjuk, ahol fel lehet iratkozni változást figyelő event-re.
+
+							A service-ben
+
+							import { BehaviorSubject } from 'rxjs';
+
+								Szolgáltat egy wrapper-t, ami lehetőséget ad feliratkozni rá, 
+								lehetőséget biztosítva értesülni a bele csomagolt adat változásáról.
+
+							// RxJS objektum, amire fel lehet majd iratkozni
+							// RxJS által menedzselt változók szokásos elnevezése a végén a $ jel.
+							// A megfigyelt adat típusának felel meg.
+						  messages$ = new BehaviorSubject<string[]>([]);
+						  private messages: string[] = [];
+
+							// Az adat módosítása helyén...
+							addMessage(message: string) {
+								this.messages = [...this.messages, message];
+								
+								// RxJS event kiváltása a módosított adat tömb másolatával a paraméterében (next method).
+						    this.messages$.next([...this.messages]);
+							}
+
+							Az adat felhasználási helyén (komponensben)
+
+							  messages: string[] = [];
+
+								ngOnInit() {
+									this.messagesService.messages$.subscribe((messages) => {
+										this.messages = messages;
+										this.cdRef.markForCheck();
+									})
+								}
+
+								Feliratkozik az RxJS szolgáltatásra
+									- Tárolja a paraméterben kapott módosított adat tömböt.
+									- Változás esetén az egész komponenst bejegyzi change detection-re.
+
+								Az ilyen feliratkozások esetén Good Practice kilépéskor a leiratkozás.
+								Ez lehetne az ngOnDestroy-ban is vagy az elegánsabb DestroyRef-rel.
+
+							  private destroyRef = inject(DestroyRef);
+
+								ngOnInit() {
+									const subscription = this.messagesService.messages$.subscribe((messages) => {
+										this.messages = messages;
+										this.cdRef.markForCheck();
+									})
+
+									this.destroyRef.onDestroy(() => {
+										subscription.unsubscribe();
+									});
+								}
+
+							async Pipe
+
+								A komponensben használt megoldás helyett van egy szintaktikailag egyszerűbb, de a háttérben ugyanez történik.
+
+								Nincs szükség feliratkozásra, leiratkozásra, change detection kiváltásra, helyileg tárolt adatra sem.
+								Ezt elvégzi az AsyncPipe.
+
+								@Component({
+									...
+									imports: [AsyncPipe],
+								})
+
+							  // Egy helyi referencia a service RxJS objektumára (elnevezése tetszőleges).
+								messages$ = this.messagesService.messages$;
+
+								A template-ben ezt a referenciát lehet használni az 'async' pipe-pal kiegészítve.	
+
+								@for (message of messages$ | async; track message) {
+									<li>{{ message }}</li>
+								}
+
+								Ez a pipe kiegészítés elvégzi az összes fenti műveletet (fel-leiratkozás, change detection megoldás,...)
+
+Zoneless
+
+	- signal-ok alkalmazásával az Angular 18-tól kezdve lehetőség van a zone.js teljes elhagyására
+	- A Change Detection az továbbra is létezik, csak nincs hozzá kiterjedt mechanizmus, mint a zone.js-ben.
+	- A signal-ok maguk gondoskodnak a változás jelzéséről
+	- Egyes event-ek szintén jeleznek a change detection-nek, pl. a click event
+		Így egy ebben lévő hagyományos property is működhet az UI-ra bind-olva
+	- De pl. egy timer event-beli változás már nem kerül jelzésre (ha nem signal-ról van szó)
+
+	Angular zoneless project
+
+		- angular.json
+
+			A build section-ben
+							"polyfills": [
+								"zone.js"
+							],
+
+			zone.js törlése
+
+							"polyfills": [],
+
+		- main.ts
+
+			import { bootstrapApplication } from '@angular/platform-browser';
+			import { provideExperimentalZonelessChangeDetection } from '@angular/core';
+			import { AppComponent } from './app/app.component';
+
+			bootstrapApplication(AppComponent, {
+				providers: [provideExperimentalZonelessChangeDetection()]
+			}).catch((err) => console.error(err));
+
+			- provideExperimentalZonelessChangeDetection importálása.
+			- provideExperimentalZonelessChangeDetection függvény futtatása a providers property tömbben.
+
+RxJS (Observables)
+
+	Observables
+		- A Stream of Data
+		- RxJS Observable-k adatokat tartalmazó eseményeket váltanak ki időről időre
+			- Fel lehet iratkozni ezekre az eseményekre (megkapva az adatokat)
+
+		Az előző fejezetben alkalmazott BehaviorSubject is egy observable alkalmazása volt.
+
+		Az observable egy subscriber, amire fel kell iratkozni. 
+		Feliratkozás nélkül nem lehet az adatokhoz férni (így ez alapvető)
+
+		Pl.:
+
+		RxJS/interval 
+		- Létrehoz egy observable-t, ami a megadott időközönként kivált egy eseményt egy folyamatosan növekvő számmal
+		- A hozzáféréshez itt is fel kell iratkozni.
+
+    interval(1000).subscribe({
+      next: (val) => console.log(val),
+    }); 
+
+		- A feliratkozás paramétere egy objektum, ami 3 metódust tartalmazhat 
+			next: kiváltódik minden új adat érkezésekor
+			complete: kiváltódik, ha az observable már nem szolgáltat több adatot
+			error: observable működés közbenu hiba esetén hívódik
+
+		- interval esetén csak a next-nek van értelme.
+			Amikor csak next van megadva megadható a subscribe után egyetlen függvényként.
+			interval(1000).subscribe((val) => console.log(val)); 
+
+		- Good Practice: Leiratkozás
+
+			private destroyRef = inject(DestroyRef);
+
+			ngOnInit() {
+				const subscription = interval(1000).subscribe({
+					next: (val) => console.log(val),
+				}); 
+
+				this.destroyRef.onDestroy(() => {
+					subscription.unsubscribe();
+				})
+			}
+
+			Létezik sok egyéb RxJS függvény, amely observable-t hoz létre.
+			De az RxJS függvények zöme már létező observable objektumok vagy azok adatainak befolyásolására használható.
+			Ezek a függvények az RxJS operatorok (RxJS Operators)
+
+			RxJS documentation Operators page (https://rxjs.dev/guide/operators)
+
+			Ezek használatához kell a pipe() hívás.
+			- map operator, ami az adatok átalakítására használható.
+
+				const subscription = interval(1000).pipe(
+					map((val) => val * 2)
+				).subscribe({
+					next: (val) => console.log(val),
+				}); 
+
+			- Kettesével fog számolni
+
+			- több operator is megadható egymás után (vesszővel elválasztva).
+
+		Subjects
+			BehaviorSubject is egy observable, de amíg a subject-ek esetén a változási event kiváltása manuálisan történik,
+			addig egy observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
+
+	Signals vs Observables
+
+		Az eddigi esetekben az observable-k helyettesíthetők lennének signal-okkal.
+		A signal-ok újabb lehetőségek az Angular-ban, korábban az RxJS volt használható adott esetekre.
+		A signal-ok megjelenésével vannak olyanok, amelyek nem igénylik az RxJS-t már.
+
+		signal és observable közti különbségek 
+
+			- A signal egy adott értéket tárol és azt bármikor tudja szolgáltatni, bármikor kiolvasható belőle.
+				- nem igényel feliratkozást (feliratkozás-szerű viselkedés pl. effect() használatával).
+				Jó megoldás:
+				- Application állapotok kezelésére
+
+			- Az observable adott időközönként közli az adatot, amely eléréséhez feliratkozás szükséges.
+				Jó megoldás:
+				- Események kezelésére
+				- Adatfolyamokhoz
+				- Mindezek aszinkron érkezhetnek az időben
+
+		Adott esetekben nem csak el kell dönteni melyiket használja a program, van amikor konvertálni kell
+		egyiket a másikra.
+
+	Converting Signals to Observables
+	TODO: Lesson 212
+
+
 
 
 NEWS
