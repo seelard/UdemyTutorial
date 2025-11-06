@@ -1673,8 +1673,125 @@ RxJS (Observables)
 		egyiket a másikra.
 
 	Converting Signals to Observables
-	TODO: Lesson 212
+	
+		- toObservable: RxJS interoperation függvény erre a célra
+			
+			import { toObservable } from '@angular/core/rxjs-interop';
 
+			Ott használható, ahol pl. injektálni is lehetne (konstruktorban vagy az osztály mezőjében).
+	
+			// Konvertálandó signal.
+		  clickCount = signal(0);
+  		
+			// A $ a végén a konvencionális jelölés
+			// A sinal non executed formája kell (nincs () a végén)
+			clickCount$ = toObservable(this.clickCount);
+
+			// Innetől ugyanúgy használható, ahogy egy observable...
+			ngOnInit() {
+			
+				const subscription = this.clickCount$.subscribe({
+					next: (val) => console.log(`clicked: ${this.clickCount} times`)
+				});
+
+				this.destroyRef.onDestroy(() => {
+					subscription.unsubscribe();
+				})
+			}
+
+	Converting Observables to Signals
+
+		- toSignal: RxJS interoperation függvény erre a célra
+			
+			import { toSignal } from '@angular/core/rxjs-interop';
+
+			// Konvertálandó observable;
+			interval$ = interval(1000);
+
+			intervalSignal = toSignal(this.interval$);
+
+			A signal használható, ahogy más signal-ok, pl. a template-ben:
+
+			<p>
+				{{ intervalSignal() }}
+			</p>
+
+			Egy fontos különbség signal és observable közt, hogy az observable-nek nincs kiindulási értéke,
+			amíg a signal-oknak szükségük van a beállítására.
+			Így a keletkezett signal először undefined lesz (az UI-n semmi nem jelenik meg) és csak az első
+			interval event-nél lesz 0.
+
+			// Ezt egy második paraméter beállításával lehet orvosolni.
+		  intervalSignal = toSignal(this.interval$, { initialValue: 0 });
+
+			Megjegyzés: A példa programban ez nem működik, mert az initialValue típusa valamiért null | undefined
+
+			Az így konvertált observable nem igényel megszünéskor egyéb műveletet, azt a signal elvégzi (automatic Cleanup).
+	
+			Ezt át lehet állítani (ha kézzel szeretnénk az observable-t megszüntetni...):
+				intervalSignal = toSignal(this.interval$, { initialValue: 0, , manualCleanup: true });
+
+	Building Custom Observables
+
+		Saját observable: egy olyan objektum amire ugyanúgy fel kell iratkozni, ahogy egy "gyári"-ra.
+
+		- Van az RxJS-ben erre egy osztály: Observable
+
+		  customInterval$ = new Observable((subscriber) => {
+				setInterval(() => {
+					console.log('Emitting new value...');
+					subscriber.next({ message: 'New value', value: 1 });
+				}, 2000);
+			});
+
+			A létrehozáshoz példányosítani kell egy Observable objektumot.
+			Az Observable létrehozásánál egy függvény a paraméter.
+			A függvény argumentuma a subscriber, ami az az objektum, ami a feliratkozásnál kerül megadásra.
+			A függvényben van az observable belső működése, innen lehet meghívni többek közt a subscriber next metódusát.
+			A next-nek kötelezően van egy paramétere.
+
+			this.customInterval$.subscribe({
+				next: (val) => console.log(val)
+			})
+
+			Nem minden observable fut folyamatosan, adott esetben megszüntethető
+
+			Az observable-n belülről hívott complete() függvény:
+			- Leállítja a további next hívásokat (még akkor is ha pl, a setInterval tovább pörög és hívná)
+			- Meghívja a subscriber complete függvényét, ha definiálva van
+			- DE nem végez magától cleanup funkciókat, tehát pl. a timert nekünk kell megszüntetni
+
+			- Ez egy megoldás, ahol a cleanup teendők megadhatók
+				Az Observable definícióban átadott függvény visszatérési értéke tartalmazhat egy cleanup függvényt.
+				Ez akkor hívódik
+					- comlete hívás az Observable.n belülről
+					- az observable unsubscribe híváskor
+
+				const custom$ = new Observable(observer => {
+					const id = setInterval(() => observer.next(Math.random()), 1000);
+
+					// Teardown logic (runs on complete OR unsubscribe)
+					return () => {
+						console.log('Cleanup running...');
+						clearInterval(id);
+					};
+				});
+
+				const sub = custom$.subscribe({
+					next: v => console.log(v),
+					complete: () => console.log('Completed!') // unsubscribe nem hívja meg csak a belülről hívott complete()
+				});			
+
+				// Later...
+				sub.unsubscribe();
+				// or observer.complete() if you trigger it inside the observable
+
+Sending HTTP Requests and Handling Responses
+
+TODO: 
+  jegyzetbe frontend/backend sample project
+	HttpClient vs js fetch ChatGpt
+	...
 
 
 
