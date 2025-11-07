@@ -1788,11 +1788,186 @@ RxJS (Observables)
 
 Sending HTTP Requests and Handling Responses
 
-TODO: 
-  jegyzetbe frontend/backend sample project
-	HttpClient vs js fetch ChatGpt
-	...
+	HttpClient: Angular service http kérések kezelésére
 
+		Egy adott komponensben:
+		
+			import { HttpClient } from '@angular/common/http';
+			
+			private httpClient = inject(HttpClient);
+
+			Önmagában így még nem hozzáférhető a szolgáltatás
+
+			providers: [] megadás szükséges
+
+		Általánosabb megoldás a main-ts-ben beemelni a szolgáltatást (megadni a provider-t):
+
+			import { provideHttpClient } from '@angular/common/http';
+
+			bootstrapApplication(AppComponent, {
+				providers: [provideHttpClient()]
+			}).catch((err) => console.error(err));
+
+		Http kérés a komponensben:
+
+			ngOnInit() {
+				// Adatkérés - get
+				this.httpClient
+					// Célszerű megadni a kért adat típusát, ami itt egy object egy places key - Place[] tömb value párossal.
+					.get<{ places: Place[] }>('http://localhost:3000/places')
+					// A get önmagában egy observable-t ad vissza, így arra fel kell iratkozni...
+					.subscribe({
+						next: (resData) => {
+							console.log(resData.places);
+						},
+						complete: () => console.log('completed')
+					});
+			}
+
+			Ezek a Http függvények (get, put, post,...) observable-t adnak vissza, amelyek egy műveletet végeznek, utána
+			egyből hívják a complete() függvényt és befejezik a működésüket.
+			Nem szükséges az unsubscribe()-t.
+
+			unsubscribe folytonosan érkező adatok (stream) esetén szükséges (ahol nem hívódik automatikusan a complete())
+
+		Http kérés konfigurálása
+
+			// get második paramétere lehet egy konfigurációs object, ahol az observe key meghatározhatja milyen adatot kérünk.
+			// 'response' jelenti, hogy a teljes response objektumot kérjük nem csak az adatot.
+	    this.httpClient
+				.get<{ places: Place[] }>('http://localhost:3000/places', {
+					observe: 'response'
+				})
+				.subscribe({
+					next: (response) => {
+						// A teljes response-ban a body-ban van az adat.
+						console.log(response.body?.places);
+					},
+					complete: () => console.log('completed')
+				});
+
+			// 'events' jelenti, hogy a kérés folyamatában keletkező eseményeket szeretnénk.
+			// Ebben az esetben többször meghívásra kerül a next függvény, még a complete() hívás előtt.
+			// Az utolsó hívás tartalmazza response-t.
+	    this.httpClient
+				.get<{ places: Place[] }>('http://localhost:3000/places', {
+					observe: 'events'
+				})
+				.subscribe({
+					next: (event) => {
+						console.log(event);
+					},
+					complete: () => console.log('completed')
+				});
+
+			Az esetek többségében azért csak az adatokra van szükség.
+
+		Response data átalakítása
+
+			// Csak egy lehetőség bemutatása, ami ebben az esetben nem lenne szükséges.
+			// pipe alkalmazása, ahol operator függvényekkel lehet befolyásolni az érkező adatot.
+			// Jelen esetben a map(), amivel át lehet szabni az adatokat, most a response-ból kiveszi a places-t,
+			// így nem a teljes object, csak a Place[] tömb fog a next-nél érkezni...
+	    this.httpClient
+				.get<{ places: Place[] }>('http://localhost:3000/places')
+				.pipe(
+					map((resData) => resData.places)
+				)
+				.subscribe({
+					next: (data) => {
+						this.places.set(data);
+						console.log(data);
+					},
+					complete: () => console.log('completed')
+				});
+		  }
+
+		Adatlekérés folyamatának jelzése
+
+			Pl.: Amíg az adatok lekérdezése van folyamatban:
+
+		  isFetching = signal(false);
+
+			ngOnInit() {
+				this.isFetching.set(true);
+
+				this.httpClient
+					.get<{ places: Place[] }>('http://localhost:3000/places')
+					.pipe(
+						map((resData) => resData.places)
+					)
+					.subscribe({
+						next: (data) => {
+							this.places.set(data);
+							console.log(data);
+						},
+						complete: () => {
+							this.isFetching.set(false);
+							console.log('completed');
+						},
+						//error: ,
+					});
+			}
+
+			template-ben:
+
+				@if (isFetching()) {
+					<p class="fallback-text">Fetching available places...</p>
+				}
+
+		Hibakezelés
+
+			Megoldható az observer error: property-jénél is, de létezik egy másik megoldás is.
+			A pipe-ban "előkezelni" a hibát:
+
+			error = signal('');
+
+			ngOnInit() {
+				this.isFetching.set(true);
+
+				this.httpClient
+					.get<{ places: Place[] }>('http://localhost:3000/places')
+					.pipe(
+						map((resData) => resData.places),
+						
+						// A catchError egy operátor, amelyben megadott függvény paraméterül kapja a hibát és egy observable-t kell visszaadnia.
+						catchError((error) => {
+							console.log(error);
+							// throwError nem egy operator, de egy RxJS függvény, ami egy observable-t ad vissza
+							// paramétere (a változatosság kedvéért) egy függvény, amely egy Error objektumot ad vissza.
+							return throwError(() => new Error('Something went wrong :('))
+						})
+					)
+					.subscribe({
+						next: (data) => {
+							this.places.set(data);
+							console.log(data);
+						},
+						complete: () => {
+							this.isFetching.set(false);
+							console.log('completed');
+						},
+						error: (err: Error) => {
+							this.error.set(err.message);
+						},
+					});
+			}
+
+		Adatküldés a backend-nek
+
+	    // put - van egy második paramétere, ahol a küldendő adat van, ez lehetne bármi,
+			// jelen esetben egy object a placeId-vel (backend ezt várja).
+			// Ez automatikusan alakításra kerül json formára...
+			// Mivel a put is egy observable-t készít, a működéshez szükséges a feliratkozás.
+			this.httpClient.put('http://localhost:3000/user-places', {
+				placeId: selectedPlace.id
+			}).subscribe({
+				next: (resData) => console.log(resData)
+			});
+
+TODO: 
+
+	Kijegyzetelni From Lesson 228
 
 
 NEWS
