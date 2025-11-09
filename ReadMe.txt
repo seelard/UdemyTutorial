@@ -1965,9 +1965,30 @@ Sending HTTP Requests and Handling Responses
 				next: (resData) => console.log(resData)
 			});
 
-TODO: 
+TODO: Részletezni a jegyzetet...
 
-	Kijegyzetelni From Lesson 228
+		Http műveletek service-be helyezése
+
+		- Célszerű a .subscribe előtti részt kirakni a service-be. Onnan egy observable jön vissza és a feliratkozás
+			egyedi részletei pedig a komponensben maradnak...
+
+		- A leiratkozás is a komponensben marad (DestroyRef)
+			Kérdés, hogy hogy ebben a formában szükséges-e az unsubscribe vagy azt kezeli a HttpClien service (ChatGPT)
+
+		- Lekérdezett adatok lokális tárolása a service-ben
+			- Mivel a subscription a komponensben van, az adatok alapból oda érkeznek (ott van lehetőség tárolni).
+			- pipe(tap()) - tap operator alkalmazásával meg tudjuk csapolni az observable-t még a subscription előtt a service-ben.
+
+		- Módosítások lokális kezelése (Optimistic Updating).
+			Pl. egy új elem hozzáadása: 
+				- Hozzáadás Http kérés kiküldése
+				- Új elem hozzáadása a lokális tömbhöz.
+				- Nem lehetünk biztosak, de feltételezzük, hogy a Http kérés hibátlanul lefut és a UI már ezt jelzi.
+
+			Hibakezelési lehetőség:
+				.pipe(catchError(...)) - catchError operator használata a put-nál.
+				- A lokálisan tárolt tömb rollback-elése hiba esetén.
+				- Figyelés, hogy már meglévő elemet ne adjon hozzá mégegyszer
 
 
 NEWS
