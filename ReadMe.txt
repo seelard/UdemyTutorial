@@ -1763,8 +1763,8 @@ RxJS (Observables)
 
 			- Ez egy megoldás, ahol a cleanup teendők megadhatók
 				Az Observable definícióban átadott függvény visszatérési értéke tartalmazhat egy cleanup függvényt.
-				Ez akkor hívódik
-					- comlete hívás az Observable.n belülről
+				Ezekben az esetekben hívódik:
+					- comlete hívás az Observable-n belülről
 					- az observable unsubscribe híváskor
 
 				const custom$ = new Observable(observer => {
@@ -1965,19 +1965,66 @@ Sending HTTP Requests and Handling Responses
 				next: (resData) => console.log(resData)
 			});
 
-TODO: Részletezni a jegyzetet...
-
 		Http műveletek service-be helyezése
 
 		- Célszerű a .subscribe előtti részt kirakni a service-be. Onnan egy observable jön vissza és a feliratkozás
 			egyedi részletei pedig a komponensben maradnak...
 
+      Service:
+ 
+				loadAvailablePlaces() {
+					return this.fetchPlaces('http://localhost:3000/places', 'Something went wrong :(');
+				}
+
+				private fetchPlaces(url: string, errorMsg: string) {
+					return this.httpClient
+						.get<{ places: Place[] }>(url)
+						.pipe(
+							map((resData) => resData.places),
+							catchError((error) => {
+								console.log(error);
+								return throwError(() => new Error(errorMsg))
+							})
+						)
+				}
+
+			Component:
+			
+				ngOnInit() {
+					this.isFetching.set(true);
+
+					const subscription = this.placesService.loadAvailablePlaces().subscribe({
+						next: (data) => {
+							this.places.set(data);
+							console.log(data);
+						},
+						complete: () => {
+							this.isFetching.set(false);
+							console.log('completed');
+						},
+						error: (err: Error) => {
+							this.error.set(err.message);
+						},
+					});
+
+					this.destroyRef.onDestroy(() => subscription.unsubscribe());
+				}
+
 		- A leiratkozás is a komponensben marad (DestroyRef)
-			Kérdés, hogy hogy ebben a formában szükséges-e az unsubscribe vagy azt kezeli a HttpClien service (ChatGPT)
+			- Habár ebben az esetben nem szükséges a leiratkozás mivel egy http get kérés egyszer végrehajtódik és
+				hívja a complete() függvényt.
+			- Hibát nem okoz és egy Angular-os Good Practice a destroyRef ilyen használata observer-ek esetén.
 
 		- Lekérdezett adatok lokális tárolása a service-ben
 			- Mivel a subscription a komponensben van, az adatok alapból oda érkeznek (ott van lehetőség tárolni).
 			- pipe(tap()) - tap operator alkalmazásával meg tudjuk csapolni az observable-t még a subscription előtt a service-ben.
+
+			loadUserPlaces() {
+				return this.fetchPlaces('http://localhost:3000/user-places', 'Something went wrong :(')
+					.pipe(tap({
+						next: (userPlaces) => this.userPlaces.set(userPlaces),
+					}));
+			}
 
 		- Módosítások lokális kezelése (Optimistic Updating).
 			Pl. egy új elem hozzáadása: 
@@ -1989,6 +2036,264 @@ TODO: Részletezni a jegyzetet...
 				.pipe(catchError(...)) - catchError operator használata a put-nál.
 				- A lokálisan tárolt tömb rollback-elése hiba esetén.
 				- Figyelés, hogy már meglévő elemet ne adjon hozzá mégegyszer
+
+				addPlaceToUserPlaces(place: Place) {
+					const prevPlaces = this.userPlaces();
+
+					if (!prevPlaces.some((p) => p.id === place.id)) {
+						this.userPlaces.update(prevPlaces => [...prevPlaces, place]);
+					}
+					
+					return this.httpClient.put('http://localhost:3000/user-places', {
+						placeId: place.id
+					}).pipe(
+						catchError(() => {
+							this.userPlaces.set(prevPlaces);
+							this.errorService.showError('Failed to add new item :(');
+
+							return throwError(() => new Error('Failed to add new item :('))
+						})
+					);
+				}
+
+	Http interceptors (elfogó)
+
+		Http műveletek végrehajtásába való betekintés, módosítás...
+
+		main.ts
+
+			import { HttpHandlerFn, HttpRequest, provideHttpClient, withInterceptors } from '@angular/common/http';
+
+			// Függvény, ami a Http kommunikáció során hívódik.
+			function loggingInterceptor(
+				request: HttpRequest<unknown>, // eredeti request
+			  next: HttpHandlerFn // Kérést továbbító függvény, ha csak meghívjuk next(request), akkor nem lesz látható hatása az interceptor-nak.
+			) {
+				
+				// Kimenő kérések elkapása...
+				console.log('[Outgoing request');
+				console.log(request);
+				return next(request);
+			}
+
+      // withInterceptors megadása a provideHttpClient paraméterében...
+			bootstrapApplication(AppComponent, {
+				providers: [provideHttpClient(withInterceptors([loggingInterceptor]))]
+			}).catch((err) => console.error(err));
+
+
+			Az elkapott Http kérés módosítható:
+
+				const req = request.clone({
+					headers: request.headers.set('X-DEBUG', 'TESTING')
+				});
+				
+				return next(req);
+
+			Érkező válaszok elkapása
+
+				function loggingInterceptor(
+					request: HttpRequest<unknown>, // eredeti request
+					next: HttpHandlerFn // Kérést továbbító függvény, ha csak meghívjuk next(request), akkor nem lesz látható hatása az interceptor-nak.
+				) {
+					
+					// Kimenő kérések elkapása...
+					console.log('[Outgoing request');
+					console.log(request);
+					
+					// Érkező válaszok elkapása.
+					// .pipe alkalmazása (egy .subscribe lezárná az observable láncolatot, az itt nem lenne jó).
+					// tap operátorral "feltűnés nélkül" belenézhetünk az érkező adatba...
+					return next(request).pipe(
+						tap({
+							next: event => {
+								if (event.type === HttpEventType.Response) {
+									console.log('Incoming response');
+									console.log(event.status);
+									console.log(event.body);
+								}
+							}
+						})
+					);
+				}
+
+Form kezelés (Template-driven / Reactive Forms)
+
+	Template-driven esetben a template tartalmaz minden form elemet.
+	Reactive esetben ts kódban vannak összeállítva a form elemei és az van csatolva a template-be...
+
+	Template-driven Forms
+
+		Pl.: HTML form
+
+		<form>
+			<h2>Login</h2>
+
+			<div class="control-row">
+				<div class="control no-margin">
+					<label for="email">Email</label>
+					<input id="email" type="email" />
+				</div>
+
+				<div class="control no-margin">
+					<label for="password">Password</label>
+					<input id="password" type="password" />
+				</div>
+
+				<button class="button">Login</button>
+			</div>
+		</form>
+
+		A cél a fenti form definíció kiegészítése olyan Angular elemekkel, amelyek hozzáférést biztosítanak számára.
+
+		Szükséges a FormsModule importálása a komponensben
+
+			import { FormsModule } from '@angular/forms';
+
+			@Component({
+				...
+				imports:[FormsModule],
+				...
+			})
+			export class LoginComponent {}
+
+			Ha ez importálva van, a <form> elemeket az Angular már detektálja...
+
+		ngModel direktíva
+
+			Korábban a two-way binding-nál használtuk, de nem csak arra való
+			
+			Beregisztrál egy input elemet az Angular számára (ez lehet textarea, select element,...)
+			<input id="email" type="email" ngModel/>
+
+			ngModel megadása esetén az input elemnek rendelkeznie kell name attribútummal (ez lehet bármi).
+
+			<input id="email" type="email" name="email" ngModel />
+
+		Jelen beállításokkal az Angular még nem fér hozzá a form-hoz.
+		
+		Alkalmazható a template variable (ahogy korábban). 
+		A template variable kaphat értéket, jelen esetben egy 
+		
+		<form #form="ngForm">  
+			- ngForm egy speciális Angular azonosító
+
+		Így az alapértelmezett HTMLFormElement típus helyett NgForm típusú lesz.
+
+		(ngSubmit), ahogy korábban a button click-re hívódik automatikusan az Angular által.
+
+		<form #form="ngForm" (ngSubmit)="onSubmit(form)">
+
+		Az onSubmit paramétere egy (az Angular által összeszerkesztet) NgForm objektum, 
+		ami tartalmazza az egész form aktuális adatait hozzáférést biztosítva azokhoz.
+
+		onSubmit(form: NgForm) {
+			console.log(form);
+		}
+
+		Input adatok kibontása az NgForm objektumból
+		(használható lenne a two-way binding ugyanúgy [(ngModel)], de a példa kedvéért most nincs)
+
+			onSubmit(formData: NgForm) {
+
+				// A 'form' key (property) 'value' membere egy object-ben tartalmazza az 'email' és 'password' input mezők tartalmát.
+				const enteredEmail = formData.form.value.email;
+				const enteredPassword = formData.form.value.password;
+				
+				console.log(enteredEmail, enteredPassword);
+			}
+
+		Input adatok validációja
+
+			Attribútumok adhatóak az input elemekhez, amelyek meghatározzák, hogy milyen adatok az elfogadottak.
+			Pl.: required, email, minlength, maxlength, pattern
+
+			<div class="control no-margin">
+				<label for="email">Email</label>
+				<input id="email" type="email" name="email" ngModel required email />
+			</div>
+
+			<div class="control no-margin">
+				<label for="password">Password</label>
+				<input id="password" type="password" name="password" ngModel required minlength="6"/>
+			</div>
+
+			Attribútumok (kezelésüket átveszi az Angular, még ha azok nevei megegyeznek standard HTML attribútumokkal)
+
+			A submit hatására nem keletkezik automatikusan hiba, csak az NgForm objektum tartalmából lehet kiszűrni.
+
+			onSubmit(formData: NgForm) {
+				
+				// Létezik a párja 'valid' property is...
+				if (formData.form.invalid) {
+					return;
+				}
+
+				const enteredEmail = formData.form.value.email;
+				const enteredPassword = formData.form.value.password;
+				
+				console.log(enteredEmail, enteredPassword);
+			}
+
+			Ez egy globális ellenőrzés a form-ra, hogy valami nem OK.
+			Ennél részletesebben is tárolásra kerül, hogy pontosan mi az, ami nem valid.
+
+			Ezt kihasználva részletes hibaüzenet adható a hibáról, célszerűen a template-ben megvalósítva.
+
+      Globális ellenőrzés:
+
+				@if (form.form.invalid) {
+					<p class="control-error">
+						Invalid values detected. Please check your input.
+					</p>
+				}
+
+				touched: Az input elembe belépés és egy kilépés történt (fókuszba került és elvesztette azt).
+				Ezzel az érhető el, hogy kiindulásként nem látszik a hibaüzenet, csak valamilyen user aktivitás után.
+
+				@if ( form.form.touched && form.form.invalid) {
+					<p class="control-error">
+						Invalid values detected. Please check your input.
+					</p>
+				}
+
+				Megjegyzés:
+				A template-ben nem minden elem lesz stabilan elérhető a form variable-n keresztül.
+				Pl. form.form.controls['email'] a gyakorlatban létezik, de az első rendereléskor még nem épül
+				fel a struktúra, amiben benne van, így hibajelzés lehetséges.
+
+				Ebben az esetben célszerű az egyes input elemehez külön template variable hozzáadása.
+
+					<input id="email" type="email" name="email" ngModel required email #email="ngModel"/>
+					<input id="password" type="password" name="password" ngModel required minlength="6" #password="ngModel"/>
+
+				Értékként az ngModel-t kell adni (ahogy a form esetén az ngForm).
+
+
+TODO: Lesson 246
+	jegyzet kiegészítése...
+
+
+			Validáció eredményének jelzése css-en keresztül
+
+				Az Angular az általa készített HTML-ben bizonyos class-okat hozzáad az input elemekhez a validáció eredményétől függően.
+
+
+Lehetséges class-ok:
+	ng-invalid
+	...
+
+				Ezek a class-ok használhatóak vizuálisan megjeleníteni a hibákat. Ehhez a css-t kell felkészíteni igény szerint...
+
+				.control:has(.ng-invalid.ng-touched.ng-dirty) label {
+					color: #f98b75;
+				}
+
+				input.ng-invalid.ng-touched.ng-dirty {
+					background-color: #fbdcd6;
+					border-color: #f84e2c;
+				}
+
 
 
 NEWS
