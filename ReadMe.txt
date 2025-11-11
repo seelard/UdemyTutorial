@@ -488,12 +488,13 @@ Component Lifecycle
 			});
 
 			// A regisztrált callback a következő UI változáskor meghívódik egyszer (amikor újra kell renderelni valamit)
+			// Jól használható olyan inicializálásokra, ami a komponens megjelenése után kell csak egyszer.
 			afterNextRender(() => {
 				console.log('NEXT');
 			});
 		}
 
-		NEM CSAK AZ ADOTT KOMPONENSRE ÉRTENDŐ, HANEM AZ EGÉSZ WEB SITE-RA (ANGULAR APPLICATION-ra)!
+		NEM CSAK AZ ADOTT KOMPONENSRE ÉRTENDŐ, HANEM AZ EGÉSZ WEB SITE-RA (ANGULAR APPLICATION-re)!
 
 DestroyRef használata ngOnDestroy helyett
 
@@ -2248,52 +2249,327 @@ Form kezelés (Template-driven / Reactive Forms)
 					</p>
 				}
 
-				touched: Az input elembe belépés és egy kilépés történt (fókuszba került és elvesztette azt).
-				Ezzel az érhető el, hogy kiindulásként nem látszik a hibaüzenet, csak valamilyen user aktivitás után.
+				Megjegyzés:
+					A template-ben nem minden elem lesz stabilan elérhető a form variable-n keresztül.
+					Pl. form.form.controls['email'] a gyakorlatban létezik, de az első rendereléskor még nem épül
+					fel a struktúra, amiben benne van, így hibajelzés lehetséges.
 
-				@if ( form.form.touched && form.form.invalid) {
+					Ebben az esetben célszerű az egyes input elemehez külön template variable hozzáadása.
+
+						<input id="email" type="email" name="email" ngModel required email #email="ngModel"/>
+						<input id="password" type="password" name="password" ngModel required minlength="6" #password="ngModel"/>
+
+					Értékként az ngModel-t kell adni (ahogy a form esetén az ngForm).
+
+			Részletesebb ellenőrzés:
+
+				@if ( email.touched && email.dirty && email.invalid) {
 					<p class="control-error">
-						Invalid values detected. Please check your input.
+						Invalid email address entered.
 					</p>
 				}
 
-				Megjegyzés:
-				A template-ben nem minden elem lesz stabilan elérhető a form variable-n keresztül.
-				Pl. form.form.controls['email'] a gyakorlatban létezik, de az első rendereléskor még nem épül
-				fel a struktúra, amiben benne van, így hibajelzés lehetséges.
+				@if ( password.touched && password.dirty && password.invalid) {
+					<p class="control-error">
+						Invalid password.
+					</p>
+				}
 
-				Ebben az esetben célszerű az egyes input elemehez külön template variable hozzáadása.
-
-					<input id="email" type="email" name="email" ngModel required email #email="ngModel"/>
-					<input id="password" type="password" name="password" ngModel required minlength="6" #password="ngModel"/>
-
-				Értékként az ngModel-t kell adni (ahogy a form esetén az ngForm).
-
-
-TODO: Lesson 246
-	jegyzet kiegészítése...
+				touched: Az input elembe belépés és egy kilépés történt (fókuszba került és elvesztette azt).
+				Ezzel az érhető el, hogy kiindulásként nem látszik a hibaüzenet, csak valamilyen user aktivitás után.
 
 
 			Validáció eredményének jelzése css-en keresztül
 
 				Az Angular az általa készített HTML-ben bizonyos class-okat hozzáad az input elemekhez a validáció eredményétől függően.
 
-
-Lehetséges class-ok:
-	ng-invalid
-	...
+				Lehetséges class-ok pl.:
+					ng-pristine : nem történt még bevitel az input mezőbe (tartalma még az eredeti (többnyire üres))
+					ng-invalid : input mező invalidnak van minősítve
+					ng-touched : user már egyszer kijelölte az imput mezőt és átlépett róla
+					ng-dirty : az input mező tartalma már változott (még ha közben visszaállításra is került)
 
 				Ezek a class-ok használhatóak vizuálisan megjeleníteni a hibákat. Ehhez a css-t kell felkészíteni igény szerint...
 
-				.control:has(.ng-invalid.ng-touched.ng-dirty) label {
-					color: #f98b75;
+					.control:has(.ng-invalid.ng-touched.ng-dirty) label {
+						color: #f98b75;
+					}
+
+					input.ng-invalid.ng-touched.ng-dirty {
+						background-color: #fbdcd6;
+						border-color: #f84e2c;
+					}
+
+		Template driven esetben célszerű a template-ben megoldani, amit lehet, de szükség lehet a komponensbeli megoldásokra is
+
+			Pl. egy submit után visszaállítani a form-ot alaphelyzetre
+
+				formData.form.reset();
+
+			Ez nem csak az input mezők tartalmát, hanem a jellemzőit is alaphelyzetre állítja (valid-invalid, touched,...)
+			Mivel ezek az egyéb tulajdonságok is hozzáférhetőek az NgForm objektumon keresztül, azok kézi beállítására is van lehetőség.
+
+				Pl.: formData.form.markAsDirty();
+
+			Igény lehet a form-ra bevitt tartalom megőrzésére abban az esetben ha az oldal valamiért újratöltésre kerül.
+			Ehhez el kell tárolni a bevitt tartalmat és újratöltésnél visszaállítani.
+
+			A fenti esetekben a form adatai az onSubmit-ban paramterként érkeztek, ebben az esetben ettől függetlenül is el kell tudni érni őket.
+
+			// A template variable segítségével "behúzzuk" a komponensbe a form-ot (NgForm)...
+			// viewChild() egy signal-t ad vissza.
+			// required, hogy ne kelljen ? a használathoz
+		  private form = viewChild.required<NgForm>('form');
+
+			Szükség van értesülni a változásokról, hogy tárolni tudjuk az aktuális tartalmat.
+			A korábban tárgyalt afterNextRender-t használjuk erre a célra, ami egyszer hívódik a következő újra rendereléskor.
+			A tárolás a localStorage-ba történik, ami egyszerűbb alkalmazásoknál jó lehet.
+
+			// unsubscribe-okhoz...
+			private destroyRef = inject(DestroyRef);
+
+			constructor() {
+				afterNextRender(() => {
+					// Az NgForm szolgáltat egy observable-t (valueChanges), ami jelzi a módosításokat, erre fel kell iratkozni.
+					this.form().valueChanges?.subscribe({
+						next: (value) =>
+							window.localStorage.setItem('saved-login-form', JSON.stringify({ email: value.email }))
+					});
+
+		      this.destroyRef.onDestroy(() => subscription?.unsubscribe());
+				})
+			}
+
+			A fenti megoldásban a tárolás minden billentyű leütésre megtörténik, amin lehet optimalizálni.
+			Az observable-khöz rengeteg funkció elérhető a pipe-on keresztül (operators).
+			Az egyik a debounceTime, ami adott idővel késlelteti az esemény kiváltódását és ha időközben újra kiváltódik,
+			akkor csak az utolsó kerül meghívásra.
+
+      // 500 msec a késleltetés...
+			const subscription = this.form().valueChanges?.pipe(debounceTime(500)).subscribe({
+
+			Tárolt adatok visszaállítás a komponens betöltődésekor
+
+				Több úton is elérhetőek az input elemek: 
+				
+				this.form().setValue({
+					email: savedEmail,
+					password: ''
+				});
+
+				this.form().controls['email'] = savedEmail;
+
+				Viszont hibát kapnánk, mivel az elemek ebben az esetben még nem állnak rendelkezésre.
+				A setTimeout lehet megoldás...
+
+				constructor() {
+					afterNextRender(() => {
+
+						const savedForm = window.localStorage.getItem('saved-login-form');
+
+						setTimeout(() => {
+							if (savedForm) {
+								const loadedForm = JSON.parse(savedForm);
+								const savedEmail = loadedForm.email;
+
+								this.form().controls['email'] = savedEmail;
+							}
+						}, 1);
+
+						const subscription = this.form().valueChanges?.pipe(debounceTime(500)).subscribe({
+							next: (value) =>
+								window.localStorage.setItem('saved-login-form', JSON.stringify({ email: value.email }))
+						})
+
+						this.destroyRef.onDestroy(() => subscription?.unsubscribe());
+					})
 				}
 
-				input.ng-invalid.ng-touched.ng-dirty {
-					background-color: #fbdcd6;
-					border-color: #f84e2c;
+	Reactive Forms
+
+		Komponens ts kódban vannak összeállítva a form elemei, amelyek onnan kerülnek csatolásra a template megfelelő eleméhez.
+
+			Kell egy FormGroup field a komponensbe, amelynek konstruktorában kell felsorolni az összes érintett form input elemet.
+			Az egyes elemek alap esetben FormControl típusúak, amelyek konstruktorában lehetőség van a default érték megadására.
+			Itt elképzelhető egyéb (beágyazott) FormGroup is.
+
+			export class LoginComponent {
+				form = new FormGroup({
+					email: new FormControl(''),
+					password: new FormControl('')
+				});
+
+				onSubmit() {
+					// Példa egy érték elérésére...
+					console.log(this.form.value.email);
+				}
+			}
+
+			Egyes elemek template-hez rendelése.
+
+				Szükséges import a komponensben:
+				  imports: [ReactiveFormsModule],
+
+				Template kiegészítések (property bindings)
+
+					[formGroup] - FormGroup binding
+					[formControl] - Control binding
+					
+					A control binding helyett használható a név megadása
+						formControlName="password"
+
+					<form [formGroup]="form">
+						<h2>Login</h2>
+
+						<div class="control-row">
+							<div class="control no-margin">
+								<label for="email">Email</label>
+								<input id="email" type="email" [formControl]="form.controls.email" />
+							</div>
+
+							<div class="control no-margin">
+								<label for="password">Password</label>
+								<input id="password" type="password" formControlName="password"/>
+							</div>
+
+							<button class="button">Login</button>
+						</div>
+					</form>
+
+				Submit ugyanúgy megy, mint egyéb esetben
+
+					<form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+				Adatok elérése
+
+					onSubmit() {
+						console.log(this.form);
+						const enteredEmail = this.form.value.email;
+						const enteredPassword = this.form.value.password;
+						console.log(enteredEmail, enteredPassword);
+					}
+
+		Adatok validálása
+
+			Template-driven esetben input mező megkötések a template-ben voltak (required,...)
+			
+			Itt a ts kódban kell validátorokat hozzárendelni az egyes control-okhoz.
+
+				A FormsControl konstruktor második paramétere lehetne közvetlenül egy Validator tömb
+					email: new FormControl('', [])
+
+				Lehet azonban egy konfigurációs objektum is, amelynek egyik eleme a validators.
+ 				A konfigurációs objektum tartalmazhat egyéb beállításokat is...
+
+				export class LoginComponent {
+					form = new FormGroup({
+						email: new FormControl('', {
+							validators: [
+								Validators.email,
+								Validators.required
+							],
+						}),
+						password: new FormControl('', {
+							validators: [
+								Validators.required,
+								Validators.minLength(6)
+							],
+						}),
+					});
+
+			Ezek után a form elemeihez az Angular ugyanúgy szolgáltatja az állapot jelzőket.
+
+				get emailIsInvalid() {
+					return (
+						this.form.controls.email.touched &&
+						this.form.controls.email.dirty &&
+						this.form.controls.email.invalid);
 				}
 
+				get passwordIsInvalid() {
+					return (
+						this.form.controls.password.touched &&
+						this.form.controls.password.dirty &&
+						this.form.controls.password.invalid);
+				}
+
+				Amelyek a template-ben használhatók (getter-en keresztül vagy akár közvetlenül is (form-on keresztül))
+
+					@if (emailIsInvalid) {
+						<p class="control-error">
+							Email address is incorrect.
+						</p>
+					}
+					@if (passwordIsInvalid) {
+						<p class="control-error">
+							Password is incorrect.
+						</p>
+					}
+
+				A szolgáltatott class beállítások is ugyanúgy működnek, ahogy template-driven esetben (ng-pristine,...)
+
+		Custom validátorok készítése
+
+			Template-driven esetben ez egy kicsit nehézkes:
+				https://angular.dev/guide/forms/form-validation#adding-custom-validators-to-template-driven-forms
+
+			Reactive Form esetén van beépített módszer
+
+			Kell egy függvény, amely visszatérési értéke null, ha az érték valid,
+			egyéb esetben valami (ez konvencionálisan valamilyen beszédes objektum).
+
+				function mustContainQuestionMark(control: AbstractControl) {
+					if (control.value.includes('?')) {
+						return null;
+					}
+					return { doesNotContainQuestionMark: true };
+				}
+
+			Amit meg kell adni a validátorok közt:
+
+				password: new FormControl('', {
+					validators: [
+						Validators.required,
+						Validators.minLength(6),
+						mustContainQuestionMark
+					],
+				}),
+
+		Async Validators
+
+			Megadhatóak aszinkron működésű validátorok is, amely szintén egy-egy függvény lehet.
+			Visszatérési értékük minden esetben egy Observable.
+			Az Observable-ból származó eredmény valid esetben null, egyébként egy hiba leíró objektum, ahogy a szinkron esetben.
+			A függvény lehet pl. egy Http kérés, ahol a szerverről érkezik az validálás (egy ilyen kérés pedig aszinkron).
+
+				Az of() egy azonnal emittáló Observable, amely a paraméterében megadott értékkel emittál és azonnal befejezi a működést (complete).
+
+				import { of } from 'rxjs';
+
+				function emailIsUnique(control: AbstractControl) {
+					if (control.value !== 'test@test.hu') {
+						return of(null);
+					}
+					return of({notUnique: true});
+				}
+
+				Ezt a függvényt kell hozzáadni az asyncValidators tömbhöz
+
+				email: new FormControl('', {
+					validators: [
+						Validators.email,
+						Validators.required
+					],
+					asyncValidators: [emailIsUnique]
+				}),
+
+
+TODO: Lesson 255
+
+	- patchValue: Csak az adott elemet update-eli ???
+	- Komponensen kívüli kód lefut egyszer, amikor a komponens először inicializálásra kerül
+		- lehet olyan eset, amikor ez a megoldás nem célszerű, pl. server side pre-rendering esetén,
+			de az egy külön téme...
 
 
 NEWS
