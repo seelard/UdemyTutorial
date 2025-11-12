@@ -2418,6 +2418,8 @@ Form kezelés (Template-driven / Reactive Forms)
 					A control binding helyett használható a név megadása
 						formControlName="password"
 
+						- Ez itt a FormGroup-ban megadott név, ami eltérhet a template-ben használt névtől.
+
 					<form [formGroup]="form">
 						<h2>Login</h2>
 
@@ -2563,13 +2565,240 @@ Form kezelés (Template-driven / Reactive Forms)
 					asyncValidators: [emailIsUnique]
 				}),
 
+		Form adatainak megőrzése Reactive Form esetén
 
-TODO: Lesson 255
+			Használható az OnInit, itt nincs szükség az afterNextRender-re a konstruktorban, ahogy tempalte-driven esetben,
+			mivel itt helyben vannak a form elemei előállítva, így azok már léteznek az ngOnInit hívásakor.
+			
+			ngOnInit() {
+				const subscription = this.form.valueChanges?.pipe(debounceTime(500)).subscribe({
+					next: value => {
+						window.localStorage.setItem(
+							'saved-login-form', 
+							JSON.stringify({ email: value.email })
+						);
+					}
+				});
 
-	- patchValue: Csak az adott elemet update-eli ???
-	- Komponensen kívüli kód lefut egyszer, amikor a komponens először inicializálásra kerül
-		- lehet olyan eset, amikor ez a megoldás nem célszerű, pl. server side pre-rendering esetén,
-			de az egy külön téme...
+				this.destroyRef.onDestroy(() => subscription.unsubscribe);
+			}
+
+		Megőrzött adatok visszaállítása
+
+			Történhet az OnInit-ben:
+
+				ngOnInit() {
+					const savedForm = window.localStorage.getItem('saved-login-form');
+
+					if (savedForm) {
+						const loadedForm = JSON.parse(savedForm);
+						this.form.patchValue({
+							email: loadedForm.email
+						})
+					}
+
+					const subscription = this.form.valueChanges?.pipe(debounceTime(500)).subscribe({
+						next: value => {
+							window.localStorage.setItem(
+								'saved-login-form', 
+								JSON.stringify({ email: value.email })
+							);
+						}
+					});
+
+					this.destroyRef.onDestroy(() => subscription.unsubscribe);
+				}
+
+				form értékeinek beállítása
+					Eddigi módszerekkel:
+						this.form.setValue({ email: 'm', password: 'p'});
+						this.form.controls.email.setValue( 'm' );
+
+					Még egy lehetőség:
+						this.form.patchValue({ email: 'm' });
+
+						Itt rész adatok megadása is lehetséges és csak azok kerülnek update-re.
+						A fenti form.setValue esetén a teljes objektum megadása szükséges (password is)
+
+			Egy másik érdekes lehetőség:
+
+				A komponens osztály kódján kívül, ami lefut egyszer, amikor a komponens először inicializálásra kerül
+
+					let initialEmailValue = '';
+					const savedForm = window.localStorage.getItem('saved-login-form');
+
+					if (savedForm) {
+						const loadedForm = JSON.parse(savedForm);
+						initialEmailValue = loadedForm.email;
+					}
+
+					@Component({
+						selector: 'app-login',
+						...
+
+				Az initialEmailValue tartalmazza a korábban mentett adatot vagy ''.
+
+				A FormGroup/FormControl definícióban pedig közvetlenül beállítható
+
+					form = new FormGroup({
+						email: new FormControl(initialEmailValue, { ...
+
+				Megjegyzés: Lehet olyan eset, amikor ez a megoldás nem célszerű, pl. server side pre-rendering esetén,
+					de, ha az nincs, akkor tökéletes.
+
+		Komplex form kezelése
+
+			Választó lista (combobox)
+
+				<select id="role" name="role" formControlName="role">
+					<option value="student">Student</option>
+					<option value="teacher">Teacher</option>
+					<option value="employee">Employee</option>
+					<option value="founder">Founder</option>
+					<option value="other">Other</option>
+				</select>
+
+				FormGroup-on belüli definíciója (meghatározható a konkrét típus, ami itt egy union):
+
+					role: new FormControl<'student' | 'teacher' | 'employee' | 'founder' | 'other'>('student', {
+						validators: [Validators.required]
+					}),
+
+			Egymásba ágyazott FormGroup-ok
+				A form-on lévő adatok csoportosítására szolgál.
+				Az összetartozó adatokat egy-egy külön FormGroup-ba lehet szervezni.
+
+				Pl. cím adatok:
+
+		    address: new FormGroup({
+					street: new FormControl('', { validators: [Validators.required] }),
+					number: new FormControl('', { validators: [Validators.required] }),
+					postalCode: new FormControl('', { validators: [Validators.required] }),
+					city: new FormControl('', { validators: [Validators.required] }),
+				}),
+
+				Az új csoport nevét meg kell adni a template-ben (mindig a csoportot befoglaló elemhez)
+				A megadás történhet teljes névvel [formGroup]="form.controls.address" vagy a rövidebb formGroupName beállításával.
+
+		    <fieldset formGroupName="address">
+					<legend>Your Address</legend>
+
+					<div class="control-row">
+						<div class="control">
+							<label for="street">Street</label>
+							<input type="text" id="street" name="street" formControlName="street"
+
+				Az elemekhez való hozzáférés így kap egy plusz "szintet": 
+					this.form.value.address?.city
+
+			Form Arrays
+
+				Példa: Három checkbox tömbösítése.
+
+		    source: new FormArray([
+					new FormControl(false),
+					new FormControl(false),
+					new FormControl(false),
+				]),
+
+ 				Az egyes FormControl-ok nem kapnak egyedi nevet, az indexükkel lehet rájuk hivatkozni...
+
+				A beágyazó elemnél kell a formArrayName megadás, az egyes elemeknél pedig az index van a formControlName-nél.
+
+				<fieldset formArrayName="source">
+					<legend>How did you find us?</legend>
+					<div class="control">
+						<input type="checkbox" id="google" name="acquisition" value="google" formControlName="0"/>
+						<label for="google">Google</label>
+					</div>
+
+					<div class="control">
+						<input type="checkbox" id="friend" name="acquisition" value="friend" formControlName="1"/>
+						<label for="friend">Referred by friend</label>
+					</div>
+
+					<div class="control">
+						<input type="checkbox" id="other" name="acquisition" value="other" formControlname="2"/>
+						<label for="other">Other</label>
+					</div>
+				</fieldset>
+
+			Több input mező együttes validálása (Multi-Input Validators)
+
+				Pl. ha a password ás a confirmPassword egyezését szeretnénk ellenőrizni.
+
+				Közös FormGroup-ba kell őket helyezni és a FormGroup-nak is van konfigurációs objektum paramétere, 
+				ahol validátorok megadása lehetséges.
+
+		    passwords: new FormGroup({
+					password: new FormControl('', {	
+						validators: [Validators.required,	Validators.minLength(6)]
+					}),
+					confirmPassword: new FormControl('', {
+						validators: [Validators.required,	Validators.minLength(6)]
+					})
+				}, {
+					validators: [equalValues],
+				}),
+
+				Megadható egy saját validátor függvény:
+					Az AbstractControl nem elég specifikus típus, ahhoz hogy el lehessen érni a password mezőket,
+					ezért egy általánosabb úton veszi az értéküket (control.get()).
+
+					function equalValues(control: AbstractControl) {
+
+						const password = control.get('password')?.value;
+						const confirmPassword = control.get('confirmPassword')?.value;
+
+						if (password === confirmPassword) {
+							return null;
+						}
+
+						return { notEqual: true };
+					}
+
+				FONTOS!
+					A FormGroup validálás eredménye jelen esetben a megjelenítésen nem látszik.
+					A láthatósághoz az Angular-nak hozzá kell adnia a class-okat az aktuális HTML elemekhez (ng-invalid,...)
+					Ez megtörténik, de nem az egyes input elemekhez, hanem a befoglaló elemhez.
+
+					Emiatt ki kell egészíteni a css-t (+ [formgroupname] sorok)
+
+					[formgroupname].ng-invalid.ng-touched.ng-dirty label,
+					.control:has(.ng-invalid.ng-touched.ng-dirty) label {
+						color: #f98b75;
+					}
+
+					[formgroupname].ng-invalid.ng-touched.ng-dirty input,
+					input.ng-invalid.ng-touched.ng-dirty {
+						background-color: #fbdcd6;
+						border-color: #f84e2c;
+					}
+
+			Validator factory
+
+				A validátorok közt van olyan, ahol nem a függvény neve van megadva, hanem egy függvényhívás.
+				pl. Validators.minlength(6)
+
+				Ez saját validátor függvényeknél is lehetséges.
+				Mivel a validators tömbben egy adott formájú függvényt kell megadni, így oda jó egy olyan függvény
+				(factory függvény), ami ilyen formájú függvényt ad vissza.
+
+				// Factory
+				function equalValues(controlName1: string, controlName2: string) {
+					// Validator-nak megfelelő formájú függvény a visszatérési érték...
+					return (control: AbstractControl) => {
+						const val1 = control.get(controlName1)?.value;
+						const val2 = control.get(controlName2)?.value;
+
+						if (val1 === val2) {
+							return null;
+						}
+
+						return { notEqual: true };
+					}
+				}
+
 
 
 NEWS
