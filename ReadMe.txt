@@ -2799,6 +2799,78 @@ Form kezelés (Template-driven / Reactive Forms)
 					}
 				}
 
+Routing
+
+	Az Angular applikációk legtöbb esetben single page applikációk.
+	Ez azt jelenti, hogy egyetlen HTML oldal kerül lekérésre a szerverről (pl. index.html).
+	Még egy bonyolult szerkezetű app is single page lehet. Lehetnek váltások a megjelenített tartalomban, 
+	de azt az Angular kezeli (hogy mi jelenjen meg, de nem kerül lekérésre újabb oldal). 
+	Ez egy kliens oldali routing, amelynek célja a megjelenített komponensek megfelelő váltogatása
+	Az Angular kezel mindent, az url-ben lévő dolgokat, ...
+
+	Routing hozzáadása (standalone eset)
+
+		main.ts
+
+			import { bootstrapApplication } from '@angular/platform-browser';
+			import { provideRouter } from '@angular/router';
+
+			import { AppComponent } from './app/app.component';
+			import { TasksComponent } from './app/tasks/tasks.component';
+
+			// bootstrapApplication második paraméterében (konfigurációs objektum) providers-hez router meghatározása (provideRouter())
+			bootstrapApplication(AppComponent, {
+				providers: [provideRouter([
+					{
+						path: 'tasks', // pl. localhost:4200/tasks
+						component: TasksComponent
+					}
+				])]
+			}).catch((err) => console.error(err));
+
+		Ezt szét szokás szedni külön fájlokba:
+
+		app.routes.ts
+			A routing-ban érintett komponensek felsorolása (tömb)
+
+			import { Routes } from "@angular/router";
+			import { TasksComponent } from "./app/tasks/tasks.component";
+
+			export const routes: Routes = [
+				{
+					path: 'tasks', // pl. localhost:4200/tasks
+					component: TasksComponent,
+				},
+			];
+
+		app.config.ts
+			Konfigurációs objektum külön fájlba. Ez a teljes app konfiguráció, nem csak a routing adatokat tartalmazhatja.
+
+			import { ApplicationConfig } from "@angular/core";
+			import { provideRouter } from '@angular/router';
+			import { routes } from "./app.routes";
+
+			export const appConfig: ApplicationConfig = {
+				providers: [
+					provideRouter(routes)
+				]
+			}
+
+		main.ts (átalakítva)
+
+			import { bootstrapApplication } from '@angular/platform-browser';
+			import { AppComponent } from './app/app.component';
+
+			import { appConfig } from './app.config';
+
+			bootstrapApplication(AppComponent, appConfig).catch((err) => console.error(err));
+
+		Egy legenerált app már így fogja tartalmazni...
+
+	Lesson 267 <router-outlet />
+	
+	Lesson 268 
+		default route path: '', pl. localhost:4200
 
 
 NEWS
