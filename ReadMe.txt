@@ -137,6 +137,39 @@ Change detection mechanisms
 		signal-ok alkalmazása (nincs szükség a zone.js-re)
 		Minden signal maga gondoskodik a hozzá tartozó UI aktualizálásáról
 
+@Input()
+
+	@Input({required: true}) userId!: string;
+
+	This means:
+		“I just want the parent component to pass a value. I will access it normally inside the component.”
+
+	This version has no setter, just a plain input property.	
+
+	@Input() 
+	set userId(uid: string) {
+		console.log(uid);
+	}
+
+	This means:
+		“I want to react to changes of the input, so I define a setter. Angular will call this setter whenever the value changes.”
+
+	Here, @Input() decorates the setter, and there is no standalone property.
+
+	If you want both a setter AND a getter, you must add a backing field:
+
+		private _userId!: string;
+
+		@Input({ required: true })
+		set userId(uid: string) {
+			this._userId = uid;
+			console.log(uid);
+		}
+
+		get userId() {
+			return this._userId;
+		}
+
 Signal inputs
 	Lesson 32
 
@@ -1438,7 +1471,7 @@ Change Detection mechanisms
 			Az adott komponensre és annak child-jaira 3 esetben fut le change detection
 				- ha a komponensben vagy valamelyik child komponensben event váltódik ki
 				- ha a komponensben valamelyik input mező módosításra kerül
-					- signal-okesetén is
+					- signal-ok esetén is
 				- manuális kezdeményezésre
 
 			Végül valószínű minden komponensre érdemes ezt beállítani, ha ez a módszer a választott.
@@ -2867,10 +2900,158 @@ Routing
 
 		Egy legenerált app már így fogja tartalmazni...
 
-	Lesson 267 <router-outlet />
+		Az így definiált routes-ok közül egyik lehet kiválasztva (a url-ben látszik).
+		Ahhoz, hogy a route által mutatott tartalom megjelenjen egy speciális direktívát kell elhelyezni a template-ben.
+
+			<div>
+				<router-outlet />
+			</div>
+
+		Amikor az url nem tartalmaz külön route definíciót, arra egy külön route megadása lehetséges (path:  '')
+
+			export const routes: Routes = [
+				{ path: '', component: NoTaskComponent },
+				{ path: 'tasks', component: TasksComponent },
+			];
 	
-	Lesson 268 
-		default route path: '', pl. localhost:4200
+
+			Pl.:
+				path: '' -> url -> localhost:4200
+				path: 'tasks' -> url -> localhost:4200/tasks
+
+		Routes-ok közti váltás
+
+			Link tag <a> használható
+
+			<a routerLink="/tasks">...</a>
+
+			routerLink Angular direktíva (habár nem ng-vel kezdődik), módosítja az <a> tag viselkedését.
+			Nem  tölti le újra az oldalt, hanem a routing-nak megfelelően rendereli újra a tartalmat.
+
+			Komponensben imports: [RouterLink] szükséges
+
+			Az aktuális route jelölése a link tag-ben
+
+		  <a routerLink="/tasks" routerLinkActive="selected">...</a>
+
+			routerLinkActive Angular direktíva.
+			Megadható egy css class, ami az active link-re érvényes.
+
+			Komponensben imports: [RouterLink, RouterLinkActive] szükséges
+
+		Dynamic Routes
+
+		  { path: 'users/:userId', component: UserTasksComponent },
+
+			A kettőspont utáni rész a dinamikus tartalom, ami a programból módosítható.
+				- ún. path paraméter vagy paraméterek
+
+		  <a [routerLink]="'/users/' + user().id" routerLinkActive="selected">
+
+				ahol a user a példában egy imput signal
+
+					user = input.required<User>();
+
+			Egy másik megadási móddal:
+
+			  <a [routerLink]="['/users', user().id]" routerLinkActive="selected">
+
+				A tömb elemeit konkatenálja a szükséges '/' jelek közbeiktatásával
+
+			A fenti megoldásban az egyes linkek megkülönböztetésre kerülnek a dinamikus rész segítségével.
+			Mégha mindegyik ugyanarra a linkre (komponensre) mutat (users). Így az aktív link jelzése korrekt lesz.
+			De egyenlőre másra nincs használva.
+
+			A link-ben szereplő dinamikus rész elérése az adott komponensben
+
+				A { path: 'users/:userId', component: UserTasksComponent } részben szereplő userId dinamikus tartalmáról van szó.
+
+				Ehhez a komponensben kell egy azonos nevű signal:
+
+				  userId = input.required<string>();
+
+				A név alapján az Angular összekapcsolja őket, amihez szükséges az alábbi konfigurációs beállítás:
+					- withComponentInputBinding()
+
+					export const appConfig: ApplicationConfig = {
+						providers: [
+							provideRouter(routes, withComponentInputBinding())
+						]
+					}
+
+				Hozzáférés @Input segítségével (így is működik a név szerinti összekapcsolás)
+
+					@Input({required: true}) userId!: string;
+
+					Ez lehet egy setter-es @Input is
+
+						@Input()
+						set userId(uid: string) {
+							console.log(uid);
+						}
+
+				Hozzáférés observable segítségével (egy lehetséges másik mód (a teljesség kedvéért))
+
+					Kell egy speciális service:
+
+					  private activatedRoute = inject(ActivatedRoute);
+
+						Ez a service tartalmaz számos observable objektumot, amiből információk nyerhetőek.
+							- Ebből az egyik a paramMap, amiből a path paramétereket lehet megkapni.
+
+					    this.activatedRoute.paramMap.subscribe({
+								next: paramMap => console.log(paramMap.get('userId'))
+							});
+
+			Beágyazott route-ok (Nested Routes)
+
+				export const routes: Routes = [
+					{ path: '', component: NoTaskComponent },
+					{
+						path: 'users/:userId',
+						component: UserTasksComponent,
+						children: [
+							{ path: 'tasks', component: TasksComponent },
+							{ path: 'tasks/new', component: NewTaskComponent }
+						]
+					},
+				];
+
+				A children route-ok megjelenítéséhez szintén kell egy <router-outlet/> a parent route komponensében
+				(a példában a UserTasksComponent-ben).
+
+				Ott mindig az aktív jelenik meg (szintén lehet több)
+
+				- localhost:4200/users/u1/tasks
+				- localhost:4200/users/u1/tasks/new
+
+				Relatív elérési utak a link-ben
+
+					Pl.: A UserTasksComponent az aktív a localhost::4200/users/u2 url-legalább
+
+					Ha innen van egy újabb link valamelyik child route-ra, akkor nem szükséges az egész path-t megadni.
+
+		      <a routerLink="tasks/new">Add Task</a>
+
+				A link-ben szereplő dinamikus rész elérése a beágyazott route komponensében
+
+					Szinténkell egy azonos nevű signal a komponensen belül:
+
+				  	userId = input.required<string>();
+
+				Ebben az esetben nem elég a withComponentInputBinding() konfigurációs beállítás.
+				Child route komponens esetén nem megy át a userId, ehhez kell egy újabb konfig...
+
+					- withRouterConfig({ paramsInheritanceStrategy: 'always' })
+
+					export const appConfig: ApplicationConfig = {
+						providers: [
+							provideRouter(routes, withComponentInputBinding(), withRouterConfig({
+								paramsInheritanceStrategy: 'always',
+							}))
+						]
+					}
+
 
 
 NEWS
