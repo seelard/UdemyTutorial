@@ -2836,10 +2836,14 @@ Routing
 
 	Az Angular applikációk legtöbb esetben single page applikációk.
 	Ez azt jelenti, hogy egyetlen HTML oldal kerül lekérésre a szerverről (pl. index.html).
-	Még egy bonyolult szerkezetű app is single page lehet. Lehetnek váltások a megjelenített tartalomban, 
-	de azt az Angular kezeli (hogy mi jelenjen meg, de nem kerül lekérésre újabb oldal). 
-	Ez egy kliens oldali routing, amelynek célja a megjelenített komponensek megfelelő váltogatása
-	Az Angular kezel mindent, az url-ben lévő dolgokat, ...
+	Még egy bonyolult szerkezetű app is single page lehet.
+	
+	Ettől még kellenek váltások a megjelenített tartalomban, amihez az Angular biztosít egy fajta
+  kliens oldali routing-ot. Az Angular kezel mindent, az url-ben lévő dolgokat, ...
+
+	Ennek alkalmazásával összetett UI szerkezetek is kezelhetőek, lehetőség van adatok átadására, vételére.
+	A route-ok közti váltásokkal nem kerül lekérésre újabb oldal a megjelenítendő komponensek a routing
+	alkalmazásával szabályozhatóak (nem pedig a láthatóságuk ki-be kapcsolgatásával).
 
 	Routing hozzáadása (standalone eset)
 
@@ -3052,7 +3056,102 @@ Routing
 						]
 					}
 
+			Route link shortcuts
 
+				Egy adott route útvonalról egyet visszalépni a routerLink="../" megadásával lehet.
+				Ez hasznos pl. a Task Listás példában a Create Task-ból Cancel-le való visszalépésre
+
+				<a routerLink="../">Cancel</a>
+
+			Programból vezérelt route navigáció
+
+  			Kell egy erre való service:
+					private router = inject(Router);
+
+					// A navigate paramétere egy tömb, amely elemeit egy path-ba fűzi össze...
+					onSubmit() {
+						this.router.navigate(['/users', this.userId, 'tasks']);
+					}
+
+					A navigate-nek lehet második paramétere, egy konfigurációs objektum.
+					Ebben sokféle beállítás elérhető...
+
+						this.router.navigate(['/users', this.userId, 'tasks'], {
+							replaceUrl: true,
+						});
+
+					A 'replaceUrl: true' azt csinálja, hogy az elnavigálás uán lecseréli az url-t, azaz a 
+					browser 'Vissza' gombjával nem megy vissza az elnavigált oldalra.
+					Egy új task létrehozása után ez hasznos (a Create után már nem akarjuk, hogy a létrehozó oldalra vissza tudjon menni).
+
+			Nem létező route kezelése (path:'**')
+
+				Ha az url-be nem létező route kerül beírásra, akkor készíthető erre a célra egy komponens,
+				jelezni ezt a user-nek.
+
+				export const routes: Routes = [
+					{ path: '', component: NoTaskComponent },
+					{
+						path: 'users/:userId',
+						component: UserTasksComponent,
+						children: [
+							{ path: 'tasks', component: TasksComponent },
+							{ path: 'tasks/new', component: NewTaskComponent }
+						]
+					},
+					{
+						path: '**',
+						component: NotFoundComponent
+					}
+				];
+
+			Redirecting users
+
+				Egy megadott path-hoz hozzárendelhető egy másik path (redirectTo) nem pedig component.
+
+				export const routes: Routes = [
+					{ path: '', component: NoTaskComponent },
+					{
+						path: 'users/:userId',
+						component: UserTasksComponent,
+						children: [
+							{
+								path: '',
+								redirectTo: 'tasks',
+								pathMatch: 'prefix'
+							},
+							{ path: 'tasks', component: TasksComponent },
+							{ path: 'tasks/new', component: NewTaskComponent }
+						]
+					},
+					{
+						path: '**',
+						component: NotFoundComponent
+					}
+				];
+
+				Pl. a példában egy user kiválasztására a következő navigáció van:
+				
+				 localhost:4200/users/u2/tasks  (u2 az aktuális user id)
+				 	- a tasks mindig hozzáadódik, hogy a user nevén kívül a hozzá tartozó taskok is megjelenjenek.
+					- Ez a child route-os megoldás, ahol a beágyazott komponens egy külön <router-outlet>-ben jelenik meg (tasks)
+				
+				Ha az url-be csak a localhost:4200/users/u2 kerül beírásra, akkor egy nem kívánatos UI megjelenítés lesz,
+				ahol a taskok nem látszanak.
+
+				A fenti megadásban az '' jelenti, hogy a 'tasks' helyén nincs semmi, akkor menjen a 'tasks'-os path-ra.
+				Tehát a program használata során a nem lenne user oldal 'tasks' végződés nélkül, de valaki be tudja gépelni úgy.
+				A routes definíciókban ez így megoldható, hogy olyankor átirányításra kerül a path.
+
+				pathMatch: full/prefix
+
+					- Amikor a rendszer keresi a megadott routes-ok közt, melyik felel meg a url-ben szereplő-nek.
+						Tehát valami beírásra kerül az url-be a routes tömböt sorban nézi a program és az első megfelelő
+						path esetén az ott megadott component (vagy egy redirected path) lesz az aktív.
+						Jelen esetben a parent url + path: 'users/:userId/' + ''
+							Route akkor kerül kiválasztásra, ha 
+								full - url teljes egészében megegyezik
+								prefix - url eleje megegyezik
 
 NEWS
 
