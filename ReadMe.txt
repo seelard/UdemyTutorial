@@ -2947,7 +2947,7 @@ Routing
 
 		  { path: 'users/:userId', component: UserTasksComponent },
 
-			A kettőspont utáni rész a dinamikus tartalom, ami a programból módosítható.
+			A kettőspont utáni rész a dinamikus tartalom, ami a programból módosítható (a kettőspont csak szintaktikai okból kell, nem lesz a része a path-nak).
 				- ún. path paraméter vagy paraméterek
 
 		  <a [routerLink]="'/users/' + user().id" routerLinkActive="selected">
@@ -2970,7 +2970,7 @@ Routing
 
 				A { path: 'users/:userId', component: UserTasksComponent } részben szereplő userId dinamikus tartalmáról van szó.
 
-				Ehhez a komponensben kell egy azonos nevű signal:
+				Ehhez a komponensben kell egy azonos nevű input signal:
 
 				  userId = input.required<string>();
 
@@ -2994,18 +2994,29 @@ Routing
 							console.log(uid);
 						}
 
-				Hozzáférés observable segítségével (egy lehetséges másik mód (a teljesség kedvéért))
+				+1 hozzáférési mód (a teljesség kedvéért)
 
 					Kell egy speciális service:
 
 					  private activatedRoute = inject(ActivatedRoute);
 
-						Ez a service tartalmaz számos observable objektumot, amiből információk nyerhetőek.
-							- Ebből az egyik a paramMap, amiből a path paramétereket lehet megkapni.
+						Ez a service tartalmaz számos objektumot, amiből információk nyerhetőek (ebből jónéhány observable).
+							- Ebből az egyik observable a paramMap, amiből a path paramétereket lehet megkapni.
 
 					    this.activatedRoute.paramMap.subscribe({
 								next: paramMap => console.log(paramMap.get('userId'))
 							});
+
+						Az ActivatedRoute-nak van egy snapshot objektuma is.
+							- Ebben hasonló mezők vannak, mint a fő objektumban, de nem observable-k, tehát bizonyos adatokhoz
+								közvetlen hozzáférést biztosítanak (subscription nélkül), viszont csak abban az egy pillanatban
+								(és nem értesülnek a változásukról).
+
+								this.activatedRoute.snapshot.paramMap.get('userId');
+
+						Megjegyzés:
+							Van egy params observable is, ami ugyanazokat az adatokat tartalmazza.
+							A paramMap-on keresztüli elérés a "korszerűbb"...
 
 			Beágyazott route-ok (Nested Routes)
 
@@ -3152,6 +3163,209 @@ Routing
 							Route akkor kerül kiválasztásra, ha 
 								full - url teljes egészében megegyezik
 								prefix - url eleje megegyezik
+
+			Route definíciók szeparált fájlokba rendezése
+
+				Nem szükséges, de bevett gyakorlat nagyobb rendszerekben az áttekinthetőség kedvéért.
+
+				Pl. az eddigi app.routes.ts-ben lévőből a child route-okat áthelyezhetjük.
+
+				- app.routes.ts
+
+					// Importáljuk az új fájlból, routes név itt már foglalt...
+					import { routes as userRoutes} from "./app/users/users.routes"
+
+					export const routes: Routes = [
+						{ path: '', component: NoTaskComponent },
+						{
+							path: 'users/:userId',
+							component: UserTasksComponent,
+							children: userRoutes,
+						},
+						{
+							path: '**',
+							component: NotFoundComponent
+						}
+					];
+
+				- users.routes.ts (új route fájl)
+
+					import { Routes } from "@angular/router";
+
+					import { NewTaskComponent } from "../tasks/new-task/new-task.component";
+					import { TasksComponent } from "../tasks/tasks.component";
+
+					export const routes: Routes = [
+						{
+							path: '',
+							redirectTo: 'tasks',
+							pathMatch: 'prefix'
+						},
+						{ path: 'tasks', component: TasksComponent },
+						{ path: 'tasks/new', component: NewTaskComponent }
+					];
+
+			Routes query paraméterek
+
+				Az url-hez íródó, ?-jel kezdődő részek kezelése. Hozzáadás és kiolvasás.
+				Úgynevezett query paraméterek közvetíthetőek az url-en keresztül.
+
+				Pl. egy link tag-be így helyezhetők el.
+					queryParams direktívához lehet bind-olni
+						- A komponensben ehhez kell az 'imports: [RouterLink]
+						- Egy object-et vár, így property binding kell [queryParams]
+					A bind-olt értékben lévő key-value párok jelennek meg az url-ben a ? után.
+					Ha több értékpár van, akkor & jellel elválasztva kerülnek be.
+								
+				<a routerLink="./" [queryParams]="{order: 'asc'}">
+					Sort Ascending / Descending
+				</a>
+
+				url: localhost:4200/users/u2/tasks?order=asc
+
+				Paraméterek visszanyerése
+
+					- withComponentInputBinding() konfigurációs beállítás segítségével
+
+						Ehhez a komponensben kell egy azonos nevű input signal:
+							order = input<'asc' | 'desc'>();
+
+					- ActivatedRoute segítségével
+						A paramMap-hoz hasonlóan van egy queryParams observable is.
+
+						// Azonos nevű property
+						order?: 'asc' | 'desc';
+						
+						ngOnInit() {
+							const subscription = this.activatedRoute.queryParams.subscribe({
+								next: params => this.order = params['order'],
+							});
+
+							this.destroyRef.onDestroy(() => subscription.unsubscribe());
+						}
+
+						Megjegyzés:
+							Van queryParamMap observable is hasonlóan a paramMap-hoz...
+			
+			Statikus adatok hozzáadása a route-hoz
+
+				- data property tartalmazhat egy object-et, amely tartalma tetszőlges.
+
+					export const routes: Routes = [
+						{ path: '', component: NoTaskComponent },
+						{
+							path: 'users/:userId',
+							component: UserTasksComponent,
+							children: userRoutes,
+							data: {
+								message: 'Hello!',
+							},
+						},
+						{
+							path: '**',
+							component: NotFoundComponent
+						}
+					];
+
+				- Az object tartalma a komponensben input signal-lal megkapható
+
+				  message = input.required<string>();
+
+			Dinamikus adatok hozzáadása a route-hoz
+
+				Egy korszerű feature...
+
+				- resolve property
+					Resolver függvény megadása, ami egy külső függvény és annak visszatérési értéke tud átmenni a route-on keresztül.
+					Több resolver függvény is megadható (több key-value pár az object-ben)
+
+					export const routes: Routes = [
+						{ path: '', component: NoTaskComponent },
+						{
+							path: 'users/:userId',
+							component: UserTasksComponent,
+							children: userRoutes,
+							data: {
+								message: 'Hello!',
+							},
+							resolve: {
+								userName: resolveUserName,
+							},
+						},
+						{
+							path: '**',
+							component: NotFoundComponent
+						}
+					];
+
+				A resolver függvény egy ResolveFn típusú függvény, ami megadja többek közt milyen paraméterekkel kell rendelkeznie.
+					- ActivatedRouteSnapshot: Az ActivatedRoute pillanatnyi adatai mivel minden navigációs esemény esetén meghívódik az
+						aktuális tartalommal.
+					- RouterStateSnaphot - szintén pillanatnyi adatokkal
+					- Generikus függvény így meg kell adni a visszatérési típust (itt most <string>)
+					- Ez egy külső függvény, ami nem fér hozzá a komponensek adataihoz, de lehetőség van service-ek injektálására.
+						Itt a UserService van behúzva és azon keresztül fér hozzá user adatokhoz.
+					- A path paraméterben átadott userId alapján keresi meg a userService-ben a user nevet
+
+				export const resolveUserName: ResolveFn<string> = (
+					activatedRoute: ActivatedRouteSnapshot,
+					routeState: RouterStateSnapshot) => {
+					
+					const usersService = inject(UsersService);
+
+					const userName = usersService.users.find((u) => u.id === activatedRoute.paramMap.get('userId'))?.name || '';
+
+					return userName;
+				}
+
+				Ezzel valójában annyi történt, hogy a korábbi komponensben lévő kód:
+
+				  userName = computed(() => this.usersService.users.find((u) => u.id === this.userId())?.name)
+
+					- Illetve a hozzá kapcsolódó service-ek (ActivatedRoute, UserService) kezelése is feleslegessé vált
+
+				Helyette: Egy újabb input signal, ami a resolve object-ben nevezett key-hez bind-olódik
+
+				  userName = input.required<string>();
+
+				A kikerüló kódok pedig a resolver függvényben vannak megvalósítva.
+				Ez a függvény külön fájlba szervezhető, így a komponens kódja még átláthatóbb lehet.
+				Egy elegáns módja a data fetching kiszervezésének.
+				
+				Megjegyzések:
+					- Mivel a userName a route-on keresztül jön ebben a megoldásban, így a komponensben szintén hozzáférhető az
+						ActivatedRoute-on keresztül (nem csak input signal-lal), ahogy a többi hasonló esetben.
+						- Az ActivatedRoute-ban van egy data nevű observable.
+							Arra feliratkozva hozzáférhetünk a resolve-ban megadott objektumhoz (aktuális adatokkal feltöltve).
+
+					-	Resolver függvények helyett korábban class-ok használata volt, ahol függvény helyett egy-egy osztályt kell
+						definiálni és a resolve object-ben azt kell megadni.
+
+				Resolver függvények futtatásának vezérlése
+
+					- Az alapértelmezett viselkedés, hogy a route paraméter változása esetén fut le újra,
+						a query paraméter változására nem. 
+						Így a korábbi példában az asc/desc query paraméterek változásának nincs hatása a resolver függvényben.
+
+						Ezt az alapértelmezést lehet módosítani a routes definícióban (runGuardsAndResolvers):
+
+							path: 'tasks', // <your-domain>/users/<uid>/tasks
+							component: TasksComponent,
+							runGuardsAndResolvers: 'paramsOrQueryParamsChange',
+							resolve: {
+								userTasks: resolveUserTasks,
+							},
+
+			Title szövegek hozzáadása a rout-hoz
+
+				Title szöveg, ami a böngésző tab fülön megjelenik (az url-nél beszédesebb UI lehetőség).
+
+				A Routes-nak van egy title property-je, ami lehet egy sima string (statikus title megadás)
+				vagy lehet egy resolver függvény (dinamikus title megadás).
+				A resolver függvény így tetszőleges helyekről tudja begyűjteni az aktuális title tartalmát (userName, bármi...)
+		
+
+
 
 NEWS
 
