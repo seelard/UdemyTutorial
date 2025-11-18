@@ -3356,7 +3356,7 @@ Routing
 								userTasks: resolveUserTasks,
 							},
 
-			Title szövegek hozzáadása a rout-hoz
+			Title szövegek hozzáadása a route-hoz
 
 				Title szöveg, ami a böngésző tab fülön megjelenik (az url-nél beszédesebb UI lehetőség).
 
@@ -3364,6 +3364,136 @@ Routing
 				vagy lehet egy resolver függvény (dinamikus title megadás).
 				A resolver függvény így tetszőleges helyekről tudja begyűjteni az aktuális title tartalmát (userName, bármi...)
 		
+			Route Guards
+
+				A route-okhoz rendelhető függvény vagy régebbi esetben class, amely jogosultsági ellenőrzést végezhet.
+				Szabályozva az egyes route-ok elérhetőségét.
+
+				A route definícióban can... kezdetű property-k beállításával lehet szabályozni a hozzáférést.
+
+				canMatch: Ez a legösszetettebb, de a legtöbbet használt property
+				canActivate: A canMatch ellenőrzés után kerül ellenőrzésre
+				canDeactivate: User elhagyhatja-e az adott oldalt.
+				canActivateChild: Ha van children megadva, akkor annak elérhetősége eltérhet a parent-től
+
+		    A canMatch egy tömb, ami függvényeket tartalmazhat.
+				
+					canMatch: [dummyCanMatch],
+
+				A függvény definíció bárhol lehet
+
+				// Formája kötött, CanMatchFn típusú függvény, két paraméterrel.
+				// A függvénybe lehet injektálni bármilyen service-t, ahogy a resolver-nél.
+				// Visszatérési értéke GuardResult: boolean, RedirectCommand vagy olyan observable, amely ilyen típusokat ad.
+				// 	type GuardResult = boolean | UrlTree | RedirectCommand
+				const dummyCanMatch: CanMatchFn = (route, segments) => {
+					
+					const router = inject(Router);
+					const access = Math.random();
+
+					if (access < 0.5) {
+						return true
+					}
+					
+					// Ez jelen esetben a NotFoundComponet-re megy.
+					return new RedirectCommand(router.parseUrl('/unauthorized'));
+				}
+
+				Példa: canDeactivate
+
+		    	Route definícióban:
+						canDeactivate: [canLeaveEditPage],
+
+					Függvény:
+						CanDeactivateFn típusú,
+						Több paramétere is lehet, az első a komponens, amelyikhez tartozik a route
+						Generikus függvény, a típus az átadott komponens típusa
+						Visszatérési értéke GuardResult
+							type GuardResult = boolean | UrlTree | RedirectCommand
+
+						// Mivel paraméterben megkapja a komponenst, hozzáfér a public property-khez.
+						export const canLeaveEditPage: CanDeactivateFn<NewTaskComponent> = (component) => {
+
+							// Kell egy plusz ellenőrzés, hogy ha minden mező ki van töltve, akkor ne jelenjen meg a kérdés...
+							// (submitted lehet egy saját property, a Submit esetén beállítva)
+							if (component.submitted) {
+								return true;
+							}
+
+							if (component.enteredTitle() || component.enteredDate() || component.enteredSummary()) {
+									return window.confirm('Are you sure to leave this page (your data will lost)?');
+							}
+							return true;
+						}
+
+						A browser vissza gombjára is lefut, akkor is megjelenhet a kérdés.
+
+			Oldal újratöltse, programból végzett navigáció konfigurálása
+
+				A jelen példában egy task-ot a Complete gombjával lehet elvégzettre állítani.
+				Ekkor kikerül a listából (törlődik).
+				Viszont az eddigi beállításokkal törlődik, de nem tűnik el azonnal a listából.
+				Oka, hogy a resolver függvény, ami beolvassa a task-okat nem fut le újra,
+				mivel	nem történik navigáció.
+
+				Programból kell navigációs eseményt generálni, hogy ez megtörténjen.
+
+				  // Navigációhoz kell a Router
+					private router = inject(Router);
+				  
+					// Speckó beállításhoz ez is kell...
+					private activatedRoute = inject(ActivatedRoute);
+
+					onComplete() {
+						this.tasksService.removeTask(this.task().id);
+
+						// Az aktuális oldalra navigálás jó, de önmagában nem működik,
+						// konfigurációs objektumban is kellenek beállítások...
+						this.router.navigate(['./'], {
+							// Kell az ActivatedRoute (mivel ez volt a tananyagban :))
+							relativeTo: this.activatedRoute,
+							
+							// Beállítás az aktuális oldalra navigálás esetén (default az 'ignore', ami nem lenne jó).
+							onSameUrlNavigation: 'reload',
+						});
+					}
+
+					Ez még mindig nem elég, a router definícióban is kell beállítás:
+
+						A 'paramsOrQueryParamsChange' helyett 'always', mivel sem a query paraméterek, sem a path paraméterek nem változnak,
+						így csak always esetén hajtódik végre a resolver.
+
+					  {
+							path: 'tasks', // <your-domain>/users/<uid>/tasks
+							component: TasksComponent,
+							runGuardsAndResolvers: 'always',
+							resolve: {
+								userTasks: resolveUserTasks,
+							},
+						},
+
+					És mégegy dolog jelentkezik, ha van beállítva query paraméter (asc/desc - url-ben látszik)
+					és ekkor van a Complete, a programból végzett navigáció után a query paraméter eltűnik.
+
+					A queryParamsHandling beállítása szükséges
+
+				    this.router.navigate(['./'], {
+							relativeTo: this.activatedRoute,
+							onSameUrlNavigation: 'reload',
+							queryParamsHandling: 'preserve',
+						});
+
+					Szóval lehet sok speciális eset, amire mindig meg kell találni melyik beállítások jók...??
+
+Lazy Loading
+Lesson 300
+
+	Nem töltődik le minden induláskor a server-ről csak ami szükséges
+	De biztosítani kell, hogy ha kell akkor lejöjjön...
+
+	Az Angular két módszert biztosít
+
+		- Routing
 
 
 
