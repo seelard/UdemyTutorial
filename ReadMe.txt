@@ -3486,14 +3486,165 @@ Routing
 					Szóval lehet sok speciális eset, amire mindig meg kell találni melyik beállítások jók...??
 
 Lazy Loading
-Lesson 300
 
-	Nem töltődik le minden induláskor a server-ről csak ami szükséges
-	De biztosítani kell, hogy ha kell akkor lejöjjön...
+	Nem töltődik le minden kód egyszerre. Lehetőség van kisebb részekre osztani az egész applikációt 
+	és csak mindig a szükséges részek kerülnek letöltésre a szerverről.
+	Pl. induláskor egy gyorsabb indulás érhető el.
 
-	Az Angular két módszert biztosít
+	Kell rá mechanizmus, hogy amire viszont szükség van az lejöjjön...
 
-		- Routing
+	Az Angular két fő módszert biztosít
+
+		A két módszer nem egymás alternatívája, hanem akár mindkét módszer használható vegyesen.
+
+		- Route-based Lazy Loading
+			Az applikáció egyik féle felosztása lehet a route-ok alapján való felosztás. 
+			Mindig csak az aktív route komponense(i) töltődnek le a szerverről
+			Ez kicsit ellentmond a single page elvnek, amikor ha nem történik adatcsere a szerverrel,
+			akár semmi hálózati kommunikáció nincs a program oldalai közti mozgáskor (mivel előtte minden lejött már).
+			Nagy méretű applikációk esetén ez a teljesítmény rovására mehet, ahol mégis célszerű lehet
+			ez a felosztás.
+
+			Ehhez elemezni kell a kódot, hogy mely route-ok azok, amelyeket nem szükséges induláskor letölteni.
+
+			Lazy loading beállítása egy adott route path-ra:
+
+				A routes definícióban a komponens meghatározását kell átalakítani úgy, hogy az adott komponenst ki lehessen venni
+				az import részből.
+
+				Pl.: Ezt kellene megszüntetni
+					import { TasksComponent } from '../tasks/tasks.component';
+
+				Az importált elemek ugyanis azonnal letöltődnek.
+
+					component helyett loadComponent:
+
+					{
+						path: 'tasks', // <your-domain>/users/<uid>/tasks
+						//component: TasksComponent,
+						loadComponent: () => import('../tasks/tasks.component').then((mod) => mod.TasksComponent),
+						runGuardsAndResolvers: 'always',
+						resolve: {
+							userTasks: resolveUserTasks,
+						},
+					},
+
+					A loadComponent egy függvényt vár.
+					Az függvény akkor hívódik, amikor az adott route aktiválásra kerül.
+					Az ebben lévő import függvény aszinkron módon letölt egy komponenst, ami a promise visszatérési értéke.
+					Az import függvényben azt az elérési utat kell megadni, ami a megszüntetendő importnál volt.
+
+					A kódban minden egyéb függőséget meg kell szüntetni, ami az import-ból törlendő komponensre vonatkozik,
+					ahhoz hogy törölhető legyen.
+
+			Lazy loading egy route group-ra
+
+				Célszerűbb lehet egy-egy route groupra beállítani a lazy loading-ot. 
+				Ehhez a kódot tudatosan ilyen group-okra kell osztani.
+
+					Az egész route import-ot kell megszüntetni (child route group)
+						import { routes as userRoutes } from './users/users.routes';
+
+					children helyett loadChildren
+
+						{
+							path: 'users/:userId', // <your-domain>/users/<uid>
+							component: UserTasksComponent,
+							//children: userRoutes,
+							loadChildren: () => import('./users/users.routes').then((mod) => mod.routes),
+							canMatch: [dummyCanMatch],
+							data: {
+								message: 'Hello!',
+							},
+							resolve: {
+								userName: resolveUserName,
+							},
+							title: resolveTitle,
+						},
+
+					Az összes group-ban szereplő route komponense csak később kerül letöltésre,
+					amikor aktiválásra kerül a children route.
+
+					Ha jól szervezett a kód, akkor az egyéb függőségek is group-on belül vannak, így azokkal nem
+					kell foglalkozni (de az mindig az adott esettől függ)...
+
+			Service lazy loading
+
+				Egy service default definíciója 
+					@Injectable({ providedIn: 'root' })
+
+				Ebben az esetben induláskor betöltődik.
+				Ha a kód group-okba van szervezve és vannak olyan service-ek, amelyek csak az adott group-hoz
+				tartoznak célszerű azokat is csak szükség esetén letölteni.
+
+				Service definícióból törlendő a 'root' megadása
+					@Injectable()
+
+				Egyéb úton kell a service-t betölteni.
+				A route group definíciójában, azzal a megoldással, hogy az egész route group-ot egy path alá kell
+				sorolni children-ként (wrapper path, ami '').
+
+				A wrapper path-hoz megadható a service a providers tömbben, így az összes children-ben elérhető lesz
+				és csak akkor töltődik le, amikor a route aktiválásra kerül.
+
+					export const routes: Routes = [
+					{
+						path: '',
+						providers: [TasksService],
+						children: [
+							{
+								path: '',
+								redirectTo: 'tasks',
+								pathMatch: 'full',
+							},
+
+		- Defarrable Views (elhalasztható)
+
+			Egy másik lehetőség a halasztott letöltésre. Adott komponens csak akkor töltődjön le,
+			amikor megjelenítésre kerül (pl. scrollozással megjelenik a böngészőben, ami addig nem látszott).
+
+			A template-ben alkalmazott @defer blokk:
+
+			@defer {
+				<app-offer-preview />
+			}
+
+			Lehet megadni feltételeket (trigger), hogy mikor jelenjen meg, pl. a viewport biztosítja, hogy akkor
+			aktiválódjon, ha a böngésző	látható részére kerül a komponens.
+			Ebben az esetben kötelező megadni egy @placeholder blokkot, ami akkor jelenik meg, amikor a defer
+			rész nem aktív (elméletileg ezt nem fogja látni a user).
+
+			@defer(on viewport) {
+				<app-offer-preview />
+			} @placeholder {
+				<p>We might have an offer...</p>
+			}
+
+			Másik ilyen trigger az on interaction, ahol akkor töltődik le, amikor a user pl. rákattint.
+			Addig a placeholder látszik.
+
+			@defer(on interaction) {
+				<app-offer-preview />
+			} @placeholder {
+				<p class="fall back">We might have an offer...</p>
+			}
+
+			Ez kiegészíthető template variable segítségével, hogy milyen interaction-re reagáljon
+
+			<button type="button" #greeting>Hello</button>
+
+			@defer(on interaction(greeting)) {
+				<app-offer-preview />
+			} @placeholder {
+				<p class="fall back">We might have an offer...</p>
+			}
+
+			Prefetch
+
+			@defer(on interaction(greeting); prefetch on hover) {
+
+			Kattintásra kerülne letöltésre, de a hover esetén arra számítunk, hogy kattintani fog, így
+			korábban elkezdi letölteni, hogy mire kattint már ott lent legyen...
 
 
 
