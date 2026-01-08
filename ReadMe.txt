@@ -51,6 +51,9 @@ Angular app létrehozása
 	ng new first-angular-app
 		- paraméterek megadása (y/N)...
 
+	ng new first-angular-app --no-zoneless
+		- v21+ esetén zoneless project az alapértelmezett, abban az esetben kell a --no-zoneless a példa alkalmazáshoz...
+
 A generált Angular app elemei
 
 	CLI verziótól függően lehetnek eltérések
@@ -107,7 +110,7 @@ Components
 	amely tartalmazta a komponenseket
 
 	Angular 16-tól létezik a standalone component
-		@Component({ standalone: true})
+		@Component({ standalone: true })
 
 	Angular 19-től az alapértelmezés a true, így a bejegyzés elmaradhat
 
@@ -121,7 +124,7 @@ Property binding
 	<img [src]="someSrc"> 
 		- Ez a DOM element (HTMLImageElement) egy létező property-je (src).
 
-	Lehet olyan eset, ahol egy HTML elem attributumához kell bind-olni
+	Lehet olyan eset, ahol egy HTML elem attribútumához kell bind-olni
 
 	<td [attr.colspan]="columnSpan"></td>
 		- A colspan egy attribútum (ilyen névvel nincs property), a bind-hoz kell az attr. előtag.
@@ -139,7 +142,7 @@ Change detection mechanisms
 
 @Input()
 
-	@Input({required: true}) userId!: string;
+	@Input({ required: true }) userId!: string;
 
 	This means:
 		“I just want the parent component to pass a value. I will access it normally inside the component.”
@@ -171,7 +174,16 @@ Change detection mechanisms
 		}
 
 Signal inputs
-	Lesson 32
+	Lesson 33, 36
+
+	input függvény
+		@Input decorator helyett használható signal-okat használó project-ek esetén.
+		Az input függvény eredménye egy readonly signal.
+
+	output függvény
+		@Output decorator helyett használható.
+		Fontos különbség az input()-hoz képest, hogy ez nem eredményez signalt, ugyanúgy EventEmitter-t hoz létre.
+		Ez inkább csak a szintaktikai egységesség kedvéért van, signalt használó projectek esetén...
 
 Forms
 	Egy Form-on belüli submit button viselkedése alapesetben kötött.
