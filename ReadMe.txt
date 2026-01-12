@@ -198,7 +198,7 @@ input within a Form (Two-way binding)
 
 Content Projection with ng-Content
 
-	Lesson 56
+	Lesson 57
 	Egy adott komponens képes lehet beágyazni (wrap) különböző komponenseket is egy adott helyre.
 	Ez lehet akár csak közös stílus alkalmazása miatt is. 
 	Ahol a beágyazott elemek kapják a beágyazó elem (wrapper) stílusát.
@@ -258,6 +258,8 @@ Beépített alapelemek kiterjesztése (Extending Built in Elements)
 
 	Type selector (ez a korábban is használt megoldás)
 		selector: 'app-button'
+	
+		- ahol a komponens egy DOM element
 
 	Attribute selector (ez a jelen esetben javasolt megoldás)
 		selector: '[appButton]' - minden helyre beillesztendő, ahol az appButton attribútum szerepel
@@ -267,6 +269,8 @@ Beépített alapelemek kiterjesztése (Extending Built in Elements)
 		<button appButton></button>
 
 		az 'appButton' egy tetszőleges azonosító
+
+		- Itt a button a DOM element és az attribútum mutatja a template komponenst, amivel bővítésre kerül
 
 	Class selector
 	 selector: '.menu-item' - minden helyre beillesztendő, ahol az adott css class meg van adva
@@ -302,12 +306,12 @@ Content Projection
 
 	Az első ng-content nincs azonosítva, így az megkapja az összes olyan tartalmat, ami máshová nem illeszkedett.
 
-	Ha szeretnénk, hogy a span elem megjelenjen a komponens template-ben:
+	Ha nem szeretnénk a class megadást kívülre rakni:
 
 	<span>
 		<ng-content/>
 	</span>
-	<span>
+	<span class="icon">
 		<ng-content select="icon"/>  --Itt ez egy item selector nem class selector (lekerült a .)
 	</span>
 
@@ -511,20 +515,20 @@ Component Lifecycle
 	ngAfterContentInit
 		A content jelenti a kívülről projektált elemeket, amelyek nincsenek közvetlenül a template-ben (ng-content).
 		Akkor hívódik, amikor minden projektált tartalom már inicializálásra került.
-		A @ContentChild és tsi által behúzott HTML elemek onnantól elérhetőak, amikor ez meghívódik,
+		A @ContentChild és tsi által behúzott HTML elemek onnantól elérhetőek, amikor ez meghívódik,
 		tehát pl. az ngOnInit-ből még nem lesznek azok (valószínű még az ngAfterViewInit-ből sem).
 
 	ngAfterContentChecked
 		Akkor hívódik, amikor minden projektált tartalmat már ellenőrzött az Angular change detection mechanizmusa.
 
 	ngOnDestroy
-		Az adott komponens láthatóságának kikapcsolásakor, amikor kikerül a renderelendő kompoinensek közül.
+		Az adott komponens láthatóságának kikapcsolásakor, amikor kikerül a renderelendő komponensek közül.
 		Pl. feltételes renderelés van a template-ben @if
 
 	afterRender (afterEveryRender >=v20), afterNextRender
-		Angular 16-tó elérhetőek, v20-tól afterRender -> afterEveryRender-re átnevezve
+		Angular 16-tól elérhetőek, v20-tól afterRender -> afterEveryRender-re átnevezve
 
-		Nem a többi life cycle hook metóduson keresztül érhetőek el (ngOnInit,...), hanem a kontruktorban.
+		Nem a többi life cycle hook metóduson keresztül érhetőek el (ngOnInit,...), hanem a konstruktorban.
 
 		constructor() {
 			// A regisztrált callback minden UI változáskor meghívódik (amikor újra kell renderelni valamit)
@@ -548,7 +552,7 @@ DestroyRef használata ngOnDestroy helyett
 	private destroyRef = inject(DestroyRef);
 
 	// Az OnItit-ben, a setInterval után egyből regisztrálható a megszüntető kód...
-  this.destroyRef.onDestroy(() => clearInterval(intervalId));
+	this.destroyRef.onDestroy(() => clearInterval(intervalId));
 
 	A komponens kódjában több helyen is használható (több helyről is fel lehet iratkozni az onDestroy-ra).
 
@@ -574,14 +578,14 @@ Template variables
 		</app-control>
 		...
 
-	#titleInput a teplate variable, amelynek #-el kell kezdődnie
+	#titleInput a template variable, amelynek #-el kell kezdődnie
 	A felhasználás helyén már nem kell a #: "onSubmit(titleInput)"
 
 	Itt egy konkrét HTMLElement kerül átadásra.
 
 	https://developer.mozilla.org/en-US/docs/Web/API/HTMLInputElement
 
-	Jelen esetben HTMLInputElement, amelynek "value" property-je tartalmaza a beírt szöveget:
+	Jelen esetben HTMLInputElement, amelynek "value" property-je tartalmazza a beírt szöveget:
 
 	onSubmit(titleElement: HTMLInputElement) {
     console.log(titleElement.value);
@@ -591,7 +595,7 @@ Template variables
 		"onSubmit(titleInput.value)"
 	Ekkor az egy string
 		onSubmit(title: string) {
-			console.log(titleElement);
+			console.log(title);
 		}
 
 	Bármely template elemhez adható template variable.
@@ -740,7 +744,7 @@ effect()
 	- a getTasks() egy signal-t ad vissza (ez lehet a figyelt signal, amely változására hívódik ez a callback)
 	- onCleanup() regisztrál egy másik callback függvényt (ez a külső callback paraméterében meg is marad)
 		Ez lehetőséget biztosít a következő változáskor, hogy először ez a függvény fusson le.
-	- Az onCleanup meghívásra kerül, ha az effect megszűnik (destroyed), ami pl. a komponens megszünésekor történik.
+	- Az onCleanup meghívásra kerül akkor is, ha az effect megszűnik (destroyed), ami pl. a komponens megszünésekor történik.
 
 @for fallback ág -> @empty
 
@@ -778,8 +782,11 @@ Custom two-way binding (ngModel használata nélkül)
 		}
 
 	app.component.html
-		A komponensen belüli input mezőkhöz ngModel-es two-way binding van
+		A komponensen belüli input mezőkhöz ngModel-es two-way binding van (ez a megoldás, ami form/input elemre működik)
+		
+		Egyéb esetben is szükség lehet two-way binding-ra (oda-vissza működjön az értékek automatikus közvetítése)
 		A rect komponens felé van a custom two-way binding, itt is a kettős zárójel használatos [(size)]
+			- Persze ehhez a .ts-ben is szükséges majd a megfelelő kód...
 
 		<div id="inputs">
 			<p>
