@@ -853,7 +853,7 @@ Directives
 	Olyan Angular elemek, amelyek valamilyen plusz működést adnak a felhasználás helyén az adott elemhez.
 
 	Pl. ngModel, egy input HTML elemben használható (többek közt) two-way binding-hoz.
-	Ehhez természetesen sok háttérműködés kell,	hogy csinálja a dolgát.
+	Ehhez természetesen sok háttérműködés kell, hogy csinálja a dolgát.
 	A direktíva használatával az Angular biztosítja a szolgáltatást.
 
 	Egy direktíva is egy Angular kód, hasonlóan egy komponens vagy service-hez.
@@ -867,7 +867,7 @@ Directives
 		...
 	}
 
-  Attribute Directives
+	Attribute Directives
 		Pl. az ngModel egy attribute directive, mivel egy meglévő HTML elemen belül van, mint attribútum.
 
 	Structural Directives
@@ -917,7 +917,8 @@ Custom Attribute Directive létrehozása
 	Amikor kattintanak rá, feldob egy kérdést, hogy tuti el akar-e navigálni.
 	Ha nem, akkor preventDefault() hívás, ami így nem hajtja végre az átnavigálást.
 
-	selector:	Úgy használatos, mint a @Component-nél,
+	selector:
+		Úgy használatos, mint a @Component-nél,
 		itt attribute selector van (a[appSafeLink]), kiegészítve az a-val, ami css szerűen jelzi,
 		hogy <a> elemek esetén, amelyekre alkalmazva van az appSagfeLink attribútum.
 
@@ -1048,12 +1049,14 @@ Custom Structural Directive létrehozása
 			private viewContainerRef = inject(ViewContainerRef);
 
 		- TemplateRef: az ng-template által tartalmazott elem(ek)
-		- ViewContainerRef: A hely ahová ahol a template elemek megjelennek (vagy nem)
+		- ViewContainerRef: A hely ahol a template elemek megjelennek (vagy nem)
 
 		Ezek használhatóak a DOM megjelenítés vezérlésére:
 
     effect(() => {
       if (this.authService.activePermission() === this.userType()) {
+
+	// createEmbeddedView: Angular function létrehozni egy DOM elemet egy megadott helyen...
         this.viewContainerRef.createEmbeddedView(this.templateRef);
       }
       else {
