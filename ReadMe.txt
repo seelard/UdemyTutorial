@@ -1272,7 +1272,7 @@ Services Deep Dive
 Service registration
 
 	Valahogy tudatni kell az Angularral, hogy mely részek az injektálhatóak.
-	Több háttér elem is van, amely ilyen feladatokat végez.
+	Több típusú háttér elem is van (injector osztály), amely ilyen feladatokat végez.
 
 	Application root / EnvironmentInjector
 
@@ -1341,20 +1341,20 @@ Custom DI Tokens (Dependency Injection Tokens)
 	
 	// export kell, mert szükség lesz rá kívül is
 	// A paraméter description string tetszőleges.
-	export const TaskServiceToken = new InjectionToken('tasks-service-token');
+	export const TaskServiceToken = new InjectionToken<TaskService>('tasks-service-token');
 
 	bootstrapApplication(AppComponent, {
-		providers: [{provide: TasksServiceToken, useClass: TasksService}  ]
+		providers: [{provide: TasksServiceToken, useClass: TasksService}]
 	}).catch((err) => console.error(err));
 
 	A providers megadásnál a rövidített megadás helyett kifejtjük az objektumot
 		- provide: saját token
-		- useClass: A service osztály (a useClass helyett lehet más is, de most egy osztályról van szó (ami  a service))
+		- useClass: A service osztály (a useClass helyett lehet más is, de most egy osztályról van szó (ami a service))
 
 	A felhasználás helyén:
 
 	- inject
-		  private tasksService = inject<TasksService>(TasksServiceToken);
+		  private tasksService = inject(TasksServiceToken);
 
 	- in constructor
 		  // Szükséges az @Inject decorator
@@ -1408,6 +1408,7 @@ Custom DI Tokens (Dependency Injection Tokens)
 		};
 
 		useValue van a useClass helyett mivel itt nem egy osztályról van szó, hanem egy konkrét tömbről.
+		És itt a TaskStatusOptions a változót jelöli nem pedig a típust (sajátosan ugyanaz a nevük)...
 
 		tasks-list.component.ts
 
@@ -1455,7 +1456,8 @@ Change Detection mechanisms
 			Ez csak development mode-ban van így és az Angular csinálja, segíteni felderíteni olyan hibákat, amikor egy
 			change detection után történik valaminek a módosítása (és valószínűleg már nem jutna érvényre a UI-n).
 		
-      Ekkor jelentkezik az ExpressionChangedAfterItHasbeenCheckedError
+			Ekkor jelentkezik az ExpressionChangedAfterItHasBeenCheckedError
+
 			Ha a két egymás utáni ellenőrzés nem ugyanazt az értéket mutatja erre figyelmeztet,
 			(lehet az adott property valamilyen nem megfelelő helyen történő módosítása a kódban, ami potenciális hiba).
 		
@@ -1517,7 +1519,7 @@ Change Detection mechanisms
 
 							Az Angular eszköze erre a célra
 
-							  private cdRef = inject(ChangeDetectorRef);
+								private cdRef = inject(ChangeDetectorRef);
 								// Ezt abban a komponensben kell alkalmazni, ahol a változásra reagálni kell az UI-nak (nem a service-ben).
 
 							Kérdés, hogyan szerzünk tudomást az adatok változásáról, mikor kell aktiválni az eszközt?
@@ -1525,8 +1527,6 @@ Change Detection mechanisms
 
 							Erre a célra az Angular-ba integrált külső library használható: RxJS
 							Third party library, de egy elég sokat használt része az Angular-nak.
-
-							Itt azt a tulajdonságát használhatjuk, ahol fel lehet iratkozni változást figyelő event-re.
 
 							A service-ben
 
@@ -1538,15 +1538,15 @@ Change Detection mechanisms
 							// RxJS objektum, amire fel lehet majd iratkozni
 							// RxJS által menedzselt változók szokásos elnevezése a végén a $ jel.
 							// A megfigyelt adat típusának felel meg.
-						  messages$ = new BehaviorSubject<string[]>([]);
-						  private messages: string[] = [];
+							messages$ = new BehaviorSubject<string[]>([]);
+							private messages: string[] = [];
 
 							// Az adat módosítása helyén...
 							addMessage(message: string) {
 								this.messages = [...this.messages, message];
-								
+									
 								// RxJS event kiváltása a módosított adat tömb másolatával a paraméterében (next method).
-						    this.messages$.next([...this.messages]);
+								this.messages$.next([...this.messages]);
 							}
 
 							Az adat felhasználási helyén (komponensben)
@@ -1562,7 +1562,7 @@ Change Detection mechanisms
 
 								Feliratkozik az RxJS szolgáltatásra
 									- Tárolja a paraméterben kapott módosított adat tömböt.
-									- Változás esetén az egész komponenst bejegyzi change detection-re.
+									- Az egész komponenst bejegyzi change detection-re.
 
 								Az ilyen feliratkozások esetén Good Practice kilépéskor a leiratkozás.
 								Ez lehetne az ngOnDestroy-ban is vagy az elegánsabb DestroyRef-rel.
@@ -1592,7 +1592,7 @@ Change Detection mechanisms
 									imports: [AsyncPipe],
 								})
 
-							  // Egy helyi referencia a service RxJS objektumára (elnevezése tetszőleges).
+								// Egy helyi referencia a service RxJS objektumára (elnevezése tetszőleges).
 								messages$ = this.messagesService.messages$;
 
 								A template-ben ezt a referenciát lehet használni az 'async' pipe-pal kiegészítve.	
@@ -1606,10 +1606,10 @@ Change Detection mechanisms
 Zoneless
 
 	- signal-ok alkalmazásával az Angular 18-tól kezdve lehetőség van a zone.js teljes elhagyására
-	- A Change Detection az továbbra is létezik, csak nincs hozzá kiterjedt mechanizmus, mint a zone.js-ben.
+	- A Change Detection továbbra is létezik, csak nincs hozzá kiterjedt mechanizmus, mint a zone.js-ben.
 	- A signal-ok maguk gondoskodnak a változás jelzéséről
 	- Egyes event-ek szintén jeleznek a change detection-nek, pl. a click event
-		Így egy ebben lévő hagyományos property is működhet az UI-ra bind-olva
+		Így egy click event handler-ben lévő hagyományos property is működhet az UI-ra bind-olva
 	- De pl. egy timer event-beli változás már nem kerül jelzésre (ha nem signal-ról van szó)
 
 	Angular zoneless project
@@ -1660,7 +1660,7 @@ RxJS (Observables)
       next: (val) => console.log(val),
     }); 
 
-		- A feliratkozás paramétere egy objektum, ami 3 metódust tartalmazhat 
+		- A feliratkozás paramétere egy objektum (observer object), ami 3 metódust tartalmazhat 
 			next: kiváltódik minden új adat érkezésekor
 			complete: kiváltódik, ha az observable már nem szolgáltat több adatot
 			error: observable működés közbenu hiba esetén hívódik
@@ -1703,8 +1703,8 @@ RxJS (Observables)
 			- több operator is megadható egymás után (vesszővel elválasztva).
 
 		Subjects
-			BehaviorSubject is egy observable, de amíg a subject-ek esetén a változási event kiváltása manuálisan történik,
-			addig egy observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
+			A Subject (pl. BehaviorSubject) egy speciális Observable, de amíg a Subject-ek esetén a változási event kiváltása manuálisan történik,
+			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
 
 	Signals vs Observables
 
@@ -1737,10 +1737,10 @@ RxJS (Observables)
 			Ott használható, ahol pl. injektálni is lehetne (konstruktorban vagy az osztály mezőjében).
 	
 			// Konvertálandó signal.
-		  clickCount = signal(0);
+			clickCount = signal(0);
   		
 			// A $ a végén a konvencionális jelölés
-			// A sinal non executed formája kell (nincs () a végén)
+			// A signal non executed formája kell (nincs () a végén)
 			clickCount$ = toObservable(this.clickCount);
 
 			// Innetől ugyanúgy használható, ahogy egy observable...
@@ -1755,6 +1755,11 @@ RxJS (Observables)
 				})
 			}
 
+			// Az Observable next event-et a signal változása automatikusan kiváltja.
+			onClick() {
+				this.clickCount.update((prev) => prev + 1);
+			}
+
 	Converting Observables to Signals
 
 		- toSignal: RxJS interoperation függvény erre a célra
@@ -1766,6 +1771,7 @@ RxJS (Observables)
 
 			intervalSignal = toSignal(this.interval$);
 
+			Nem kell subscribe/unsubscribe.
 			A signal használható, ahogy más signal-ok, pl. a template-ben:
 
 			<p>
@@ -1778,7 +1784,7 @@ RxJS (Observables)
 			interval event-nél lesz 0.
 
 			// Ezt egy második paraméter beállításával lehet orvosolni.
-		  intervalSignal = toSignal(this.interval$, { initialValue: 0 });
+			intervalSignal = toSignal(this.interval$, { initialValue: 0 });
 
 			Megjegyzés: A példa programban ez nem működik, mert az initialValue típusa valamiért null | undefined
 
@@ -1813,14 +1819,14 @@ RxJS (Observables)
 			Nem minden observable fut folyamatosan, adott esetben megszüntethető
 
 			Az observable-n belülről hívott complete() függvény:
-			- Leállítja a további next hívásokat (még akkor is ha pl, a setInterval tovább pörög és hívná)
+			- Leállítja a további next hívásokat (még akkor is ha pl., a setInterval tovább pörög és hívná)
 			- Meghívja a subscriber complete függvényét, ha definiálva van
 			- DE nem végez magától cleanup funkciókat, tehát pl. a timert nekünk kell megszüntetni
 
 			- Ez egy megoldás, ahol a cleanup teendők megadhatók
 				Az Observable definícióban átadott függvény visszatérési értéke tartalmazhat egy cleanup függvényt.
 				Ezekben az esetekben hívódik:
-					- comlete hívás az Observable-n belülről
+					- complete hívás az Observable-n belülről
 					- az observable unsubscribe híváskor
 
 				const custom$ = new Observable(observer => {
@@ -1838,7 +1844,7 @@ RxJS (Observables)
 					complete: () => console.log('Completed!') // unsubscribe nem hívja meg csak a belülről hívott complete()
 				});			
 
-				// Later...
+				// Unsubscribe calls teardown logic...
 				sub.unsubscribe();
 				// or observer.complete() if you trigger it inside the observable
 
