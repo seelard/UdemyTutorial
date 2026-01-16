@@ -1875,9 +1875,10 @@ Sending HTTP Requests and Handling Responses
 			ngOnInit() {
 				// Adatkérés - get
 				this.httpClient
-					// Célszerű megadni a kért adat típusát, ami itt egy object egy places key - Place[] tömb value párossal.
+					// Célszerű megadni a kért adat típusát, ami itt egy object: egy "places:" key - "Place[]" tömb value párossal.
 					.get<{ places: Place[] }>('http://localhost:3000/places')
-					// A get önmagában egy observable-t ad vissza, így arra fel kell iratkozni...
+					// A get önmagában egy observable-t ad vissza, így arra fel kell iratkozni
+					// (a kérés (get) is csak a subscribe hatására megy el)...
 					.subscribe({
 						next: (resData) => {
 							console.log(resData.places);
@@ -1888,15 +1889,16 @@ Sending HTTP Requests and Handling Responses
 
 			Ezek a Http függvények (get, put, post,...) observable-t adnak vissza, amelyek egy műveletet végeznek, utána
 			egyből hívják a complete() függvényt és befejezik a működésüket.
-			Nem szükséges az unsubscribe()-t.
 
-			unsubscribe folytonosan érkező adatok (stream) esetén szükséges (ahol nem hívódik automatikusan a complete())
+			Nem szükséges az unsubscribe(), de egy jó gyakorlat lehet minden subscribe-hoz az unsubscrice felvétele a kódban.
+
+			unsubscribe folytonosan érkező adatok (stream) esetén mindenképp szükséges (ahol nem hívódik automatikusan a complete())
 
 		Http kérés konfigurálása
 
-			// get második paramétere lehet egy konfigurációs object, ahol az observe key meghatározhatja milyen adatot kérünk.
+			// get második paramétere lehet egy konfigurációs objektum, ahol az observe key meghatározhatja milyen adatot kérünk.
 			// 'response' jelenti, hogy a teljes response objektumot kérjük nem csak az adatot.
-	    this.httpClient
+			this.httpClient
 				.get<{ places: Place[] }>('http://localhost:3000/places', {
 					observe: 'response'
 				})
@@ -1911,7 +1913,7 @@ Sending HTTP Requests and Handling Responses
 			// 'events' jelenti, hogy a kérés folyamatában keletkező eseményeket szeretnénk.
 			// Ebben az esetben többször meghívásra kerül a next függvény, még a complete() hívás előtt.
 			// Az utolsó hívás tartalmazza response-t.
-	    this.httpClient
+			this.httpClient
 				.get<{ places: Place[] }>('http://localhost:3000/places', {
 					observe: 'events'
 				})
@@ -1930,7 +1932,7 @@ Sending HTTP Requests and Handling Responses
 			// pipe alkalmazása, ahol operator függvényekkel lehet befolyásolni az érkező adatot.
 			// Jelen esetben a map(), amivel át lehet szabni az adatokat, most a response-ból kiveszi a places-t,
 			// így nem a teljes object, csak a Place[] tömb fog a next-nél érkezni...
-	    this.httpClient
+			this.httpClient
 				.get<{ places: Place[] }>('http://localhost:3000/places')
 				.pipe(
 					map((resData) => resData.places)
@@ -1942,13 +1944,13 @@ Sending HTTP Requests and Handling Responses
 					},
 					complete: () => console.log('completed')
 				});
-		  }
+		 	 }
 
 		Adatlekérés folyamatának jelzése
 
 			Pl.: Amíg az adatok lekérdezése van folyamatban:
 
-		  isFetching = signal(false);
+			isFetching = signal(false);
 
 			ngOnInit() {
 				this.isFetching.set(true);
@@ -2017,7 +2019,7 @@ Sending HTTP Requests and Handling Responses
 
 		Adatküldés a backend-nek
 
-	    // put - van egy második paramétere, ahol a küldendő adat van, ez lehetne bármi,
+			// put - van egy második paramétere, ahol a küldendő adat van, ez lehetne bármi,
 			// jelen esetben egy object a placeId-vel (backend ezt várja).
 			// Ez automatikusan alakításra kerül json formára...
 			// Mivel a put is egy observable-t készít, a működéshez szükséges a feliratkozás.
@@ -2032,45 +2034,45 @@ Sending HTTP Requests and Handling Responses
 		- Célszerű a .subscribe előtti részt kirakni a service-be. Onnan egy observable jön vissza és a feliratkozás
 			egyedi részletei pedig a komponensben maradnak...
 
-      Service:
+	Service:
  
-				loadAvailablePlaces() {
-					return this.fetchPlaces('http://localhost:3000/places', 'Something went wrong :(');
-				}
+		loadAvailablePlaces() {
+			return this.fetchPlaces('http://localhost:3000/places', 'Something went wrong :(');
+		}
 
-				private fetchPlaces(url: string, errorMsg: string) {
-					return this.httpClient
-						.get<{ places: Place[] }>(url)
-						.pipe(
-							map((resData) => resData.places),
-							catchError((error) => {
-								console.log(error);
-								return throwError(() => new Error(errorMsg))
-							})
-						)
-				}
+		private fetchPlaces(url: string, errorMsg: string) {
+			return this.httpClient
+				.get<{ places: Place[] }>(url)
+				.pipe(
+					map((resData) => resData.places),
+					catchError((error) => {
+						console.log(error);
+						return throwError(() => new Error(errorMsg))
+					})
+				)
+		}
 
-			Component:
+	Component:
 			
-				ngOnInit() {
-					this.isFetching.set(true);
+		ngOnInit() {
+			this.isFetching.set(true);
 
-					const subscription = this.placesService.loadAvailablePlaces().subscribe({
-						next: (data) => {
-							this.places.set(data);
-							console.log(data);
-						},
-						complete: () => {
-							this.isFetching.set(false);
-							console.log('completed');
-						},
-						error: (err: Error) => {
-							this.error.set(err.message);
-						},
-					});
+			const subscription = this.placesService.loadAvailablePlaces().subscribe({
+				next: (data) => {
+					this.places.set(data);
+					console.log(data);
+				},
+				complete: () => {
+					this.isFetching.set(false);
+					console.log('completed');
+				},
+				error: (err: Error) => {
+					this.error.set(err.message);
+				},
+			});
 
-					this.destroyRef.onDestroy(() => subscription.unsubscribe());
-				}
+			this.destroyRef.onDestroy(() => subscription.unsubscribe());
+		}
 
 		- A leiratkozás is a komponensben marad (DestroyRef)
 			- Habár ebben az esetben nem szükséges a leiratkozás mivel egy http get kérés egyszer végrehajtódik és
