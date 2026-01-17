@@ -2183,6 +2183,9 @@ Sending HTTP Requests and Handling Responses
 
 Form kezelés (Template-driven / Reactive Forms)
 
+	A korábban használt módszerek valamelyike is elegendő lehet form elemek kezelésére (two-way binding, template variables),
+	de összetettebb esetekben szükség lehet ez a két fejlettebb módszer szolgáltatásaira (error handling, validation,...).
+
 	Template-driven esetben a template tartalmaz minden form elemet.
 	Reactive esetben ts kódban vannak összeállítva a form elemei és az van csatolva a template-be...
 
@@ -2248,7 +2251,7 @@ Form kezelés (Template-driven / Reactive Forms)
 
 		<form #form="ngForm" (ngSubmit)="onSubmit(form)">
 
-		Az onSubmit paramétere egy (az Angular által összeszerkesztet) NgForm objektum, 
+		Az onSubmit paramétere egy (az Angular által összeszerkesztett) NgForm objektum, 
 		ami tartalmazza az egész form aktuális adatait hozzáférést biztosítva azokhoz.
 
 		onSubmit(form: NgForm) {
@@ -2304,7 +2307,7 @@ Form kezelés (Template-driven / Reactive Forms)
 
 			Ezt kihasználva részletes hibaüzenet adható a hibáról, célszerűen a template-ben megvalósítva.
 
-      Globális ellenőrzés:
+			Globális ellenőrzés:
 
 				@if (form.form.invalid) {
 					<p class="control-error">
@@ -2382,7 +2385,7 @@ Form kezelés (Template-driven / Reactive Forms)
 			// A template variable segítségével "behúzzuk" a komponensbe a form-ot (NgForm)...
 			// viewChild() egy signal-t ad vissza.
 			// required, hogy ne kelljen ? a használathoz
-		  private form = viewChild.required<NgForm>('form');
+			private form = viewChild.required<NgForm>('form');
 
 			Szükség van értesülni a változásokról, hogy tárolni tudjuk az aktuális tartalmat.
 			A korábban tárgyalt afterNextRender-t használjuk erre a célra, ami egyszer hívódik a következő újra rendereléskor.
@@ -2399,7 +2402,7 @@ Form kezelés (Template-driven / Reactive Forms)
 							window.localStorage.setItem('saved-login-form', JSON.stringify({ email: value.email }))
 					});
 
-		      this.destroyRef.onDestroy(() => subscription?.unsubscribe());
+		   			this.destroyRef.onDestroy(() => subscription?.unsubscribe());
 				})
 			}
 
@@ -2408,10 +2411,10 @@ Form kezelés (Template-driven / Reactive Forms)
 			Az egyik a debounceTime, ami adott idővel késlelteti az esemény kiváltódását és ha időközben újra kiváltódik,
 			akkor csak az utolsó kerül meghívásra.
 
-      // 500 msec a késleltetés...
+   			// 500 msec a késleltetés...
 			const subscription = this.form().valueChanges?.pipe(debounceTime(500)).subscribe({
 
-			Tárolt adatok visszaállítás a komponens betöltődésekor
+			Tárolt adatok visszaállítása a komponens betöltődésekor
 
 				Több úton is elérhetőek az input elemek: 
 				
@@ -2450,9 +2453,9 @@ Form kezelés (Template-driven / Reactive Forms)
 
 	Reactive Forms
 
-		Komponens ts kódban vannak összeállítva a form elemei, amelyek onnan kerülnek csatolásra a template megfelelő eleméhez.
+		A komponens ts kódjában vannak összeállítva a form elemei, amelyek onnan kerülnek csatolásra a template megfelelő eleméhez.
 
-			Kell egy FormGroup field a komponensbe, amelynek konstruktorában kell felsorolni az összes érintett form input elemet.
+			Kell egy FormGroup property a komponensbe, amelynek konstruktorában kell felsorolni az összes érintett form input elemet.
 			Az egyes elemek alap esetben FormControl típusúak, amelyek konstruktorában lehetőség van a default érték megadására.
 			Itt elképzelhető egyéb (beágyazott) FormGroup is.
 
@@ -2869,7 +2872,7 @@ Routing
 	Még egy bonyolult szerkezetű app is single page lehet.
 	
 	Ettől még kellenek váltások a megjelenített tartalomban, amihez az Angular biztosít egy fajta
-  kliens oldali routing-ot. Az Angular kezel mindent, az url-ben lévő dolgokat, ...
+	kliens oldali routing-ot. Az Angular kezel mindent, az url-ben lévő dolgokat, ...
 
 	Ennek alkalmazásával összetett UI szerkezetek is kezelhetőek, lehetőség van adatok átadására, vételére.
 	A route-ok közti váltásokkal nem kerül lekérésre újabb oldal a megjelenítendő komponensek a routing
