@@ -2796,7 +2796,7 @@ Form kezelés (Template-driven / Reactive Forms)
 				Közös FormGroup-ba kell őket helyezni és a FormGroup-nak is van konfigurációs objektum paramétere, 
 				ahol validátorok megadása lehetséges.
 
-		    passwords: new FormGroup({
+		  	passwords: new FormGroup({
 					password: new FormControl('', {	
 						validators: [Validators.required,	Validators.minLength(6)]
 					}),
@@ -2865,6 +2865,10 @@ Form kezelés (Template-driven / Reactive Forms)
 					}
 				}
 
+				Validator megadádsa ebben az esetben:
+
+					validators: [equalValues('password', 'confirmPassword')],
+
 Routing
 
 	Az Angular applikációk legtöbb esetben single page applikációk.
@@ -2875,7 +2879,7 @@ Routing
 	kliens oldali routing-ot. Az Angular kezel mindent, az url-ben lévő dolgokat, ...
 
 	Ennek alkalmazásával összetett UI szerkezetek is kezelhetőek, lehetőség van adatok átadására, vételére.
-	A route-ok közti váltásokkal nem kerül lekérésre újabb oldal a megjelenítendő komponensek a routing
+	A route-ok közti váltásokkal nem kerül lekérésre újabb oldal, a megjelenítendő komponensek a routing
 	alkalmazásával szabályozhatóak (nem pedig a láthatóságuk ki-be kapcsolgatásával).
 
 	Routing hozzáadása (standalone eset)
@@ -3109,7 +3113,7 @@ Routing
 
 			Programból vezérelt route navigáció
 
-  			Kell egy erre való service:
+				Kell egy erre való service:
 					private router = inject(Router);
 
 					// A navigate paramétere egy tömb, amely elemeit egy path-ba fűzi össze...
