@@ -3072,7 +3072,7 @@ Routing
 				A children route-ok megjelenítéséhez szintén kell egy <router-outlet/> a parent route komponensében
 				(a példában a UserTasksComponent-ben).
 
-				Ott mindig az aktív jelenik meg (szintén lehet több)
+				Ott mindig az aktív jelenik meg (szintén lehet több route felsorolva)
 
 				- localhost:4200/users/u1/tasks
 				- localhost:4200/users/u1/tasks/new
@@ -3083,11 +3083,11 @@ Routing
 
 					Ha innen van egy újabb link valamelyik child route-ra, akkor nem szükséges az egész path-t megadni.
 
-		      <a routerLink="tasks/new">Add Task</a>
+					<a routerLink="tasks/new">Add Task</a>
 
 				A link-ben szereplő dinamikus rész elérése a beágyazott route komponensében
 
-					Szinténkell egy azonos nevű signal a komponensen belül:
+					Szintén kell egy azonos nevű signal a komponensen belül:
 
 				  	userId = input.required<string>();
 
@@ -3128,7 +3128,7 @@ Routing
 							replaceUrl: true,
 						});
 
-					A 'replaceUrl: true' azt csinálja, hogy az elnavigálás uán lecseréli az url-t, azaz a 
+					A 'replaceUrl: true' azt csinálja, hogy az elnavigálás után lecseréli az url-t, azaz a 
 					browser 'Vissza' gombjával nem megy vissza az elnavigált oldalra.
 					Egy új task létrehozása után ez hasznos (a Create után már nem akarjuk, hogy a létrehozó oldalra vissza tudjon menni).
 
@@ -3155,7 +3155,7 @@ Routing
 
 			Redirecting users
 
-				Egy megadott path-hoz hozzárendelhető egy másik path (redirectTo) nem pedig component.
+				Egy megadott path-hoz hozzárendelhető egy másik path (redirectTo) egy adott component helyett.
 
 				export const routes: Routes = [
 					{ path: '', component: NoTaskComponent },
@@ -3188,8 +3188,8 @@ Routing
 				ahol a taskok nem látszanak.
 
 				A fenti megadásban az '' jelenti, hogy a 'tasks' helyén nincs semmi, akkor menjen a 'tasks'-os path-ra.
-				Tehát a program használata során a nem lenne user oldal 'tasks' végződés nélkül, de valaki be tudja gépelni úgy.
-				A routes definíciókban ez így megoldható, hogy olyankor átirányításra kerül a path.
+				Tehát a program használata során nem kerül az url-be user oldal 'tasks' végződés nélkül, de a user be tudja gépelni.
+				A routes definíciókban megoldható, hogy olyankor átirányításra kerül a path.
 
 				pathMatch: full/prefix
 
@@ -3257,6 +3257,9 @@ Routing
 				<a routerLink="./" [queryParams]="{order: 'asc'}">
 					Sort Ascending / Descending
 				</a>
+
+				routerLink="./" : Speciális megadás, ami azt jelenti maradjon az aktuális oldalon.
+					- Használatával a query paraméter önmagában állítható
 
 				url: localhost:4200/users/u2/tasks?order=asc
 
@@ -3336,7 +3339,7 @@ Routing
 					];
 
 				A resolver függvény egy ResolveFn típusú függvény, ami megadja többek közt milyen paraméterekkel kell rendelkeznie.
-					- ActivatedRouteSnapshot: Az ActivatedRoute pillanatnyi adatai mivel minden navigációs esemény esetén meghívódik az
+					- ActivatedRouteSnapshot: Az ActivatedRoute pillanatnyi adatai, mivel minden navigációs esemény esetén meghívódik az
 						aktuális tartalommal.
 					- RouterStateSnaphot - szintén pillanatnyi adatokkal
 					- Generikus függvény így meg kell adni a visszatérési típust (itt most <string>)
@@ -3365,7 +3368,7 @@ Routing
 
 				  userName = input.required<string>();
 
-				A kikerüló kódok pedig a resolver függvényben vannak megvalósítva.
+				A kikerülő kódok pedig a resolver függvényben vannak megvalósítva.
 				Ez a függvény külön fájlba szervezhető, így a komponens kódja még átláthatóbb lehet.
 				Egy elegáns módja a data fetching kiszervezésének.
 				
@@ -3413,7 +3416,7 @@ Routing
 				canDeactivate: User elhagyhatja-e az adott oldalt.
 				canActivateChild: Ha van children megadva, akkor annak elérhetősége eltérhet a parent-től
 
-		    A canMatch egy tömb, ami függvényeket tartalmazhat.
+				A canMatch egy tömb, ami függvényeket tartalmazhat.
 				
 					canMatch: [dummyCanMatch],
 
@@ -3438,7 +3441,7 @@ Routing
 
 				Példa: canDeactivate
 
-		    	Route definícióban:
+					Route definícióban:
 						canDeactivate: [canLeaveEditPage],
 
 					Függvény:
@@ -3471,7 +3474,7 @@ Routing
 				Ekkor kikerül a listából (törlődik).
 				Viszont az eddigi beállításokkal törlődik, de nem tűnik el azonnal a listából.
 				Oka, hogy a resolver függvény, ami beolvassa a task-okat nem fut le újra,
-				mivel	nem történik navigáció.
+				mivel nem történik navigáció.
 
 				Programból kell navigációs eseményt generálni, hogy ez megtörténjen.
 
@@ -3500,7 +3503,7 @@ Routing
 						A 'paramsOrQueryParamsChange' helyett 'always', mivel sem a query paraméterek, sem a path paraméterek nem változnak,
 						így csak always esetén hajtódik végre a resolver.
 
-					  {
+						{
 							path: 'tasks', // <your-domain>/users/<uid>/tasks
 							component: TasksComponent,
 							runGuardsAndResolvers: 'always',
@@ -3514,7 +3517,7 @@ Routing
 
 					A queryParamsHandling beállítása szükséges
 
-				    this.router.navigate(['./'], {
+				  	this.router.navigate(['./'], {
 							relativeTo: this.activatedRoute,
 							onSameUrlNavigation: 'reload',
 							queryParamsHandling: 'preserve',
