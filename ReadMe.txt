@@ -3571,7 +3571,7 @@ Lazy Loading
 
 					A loadComponent egy függvényt vár.
 					Az függvény akkor hívódik, amikor az adott route aktiválásra kerül.
-					Az ebben lévő import függvény aszinkron módon letölt egy komponenst, ami a promise visszatérési értéke.
+					Az ebben lévő import függvény aszinkron módon letölt egy komponenst.
 					Az import függvényben azt az elérési utat kell megadni, ami a megszüntetendő importnál volt.
 
 					A kódban minden egyéb függőséget meg kell szüntetni, ami az import-ból törlendő komponensre vonatkozik,
@@ -3650,7 +3650,7 @@ Lazy Loading
 			}
 
 			Lehet megadni feltételeket (trigger), hogy mikor jelenjen meg, pl. a viewport biztosítja, hogy akkor
-			aktiválódjon, ha a böngésző	látható részére kerül a komponens.
+			aktiválódjon, ha a böngésző látható részére kerül a komponens.
 			Ebben az esetben kötelező megadni egy @placeholder blokkot, ami akkor jelenik meg, amikor a defer
 			rész nem aktív (elméletileg ezt nem fogja látni a user).
 
@@ -3666,7 +3666,7 @@ Lazy Loading
 			@defer(on interaction) {
 				<app-offer-preview />
 			} @placeholder {
-				<p class="fall back">We might have an offer...</p>
+				<p class="fallback">We might have an offer...</p>
 			}
 
 			Ez kiegészíthető template variable segítségével, hogy milyen interaction-re reagáljon
@@ -3676,7 +3676,7 @@ Lazy Loading
 			@defer(on interaction(greeting)) {
 				<app-offer-preview />
 			} @placeholder {
-				<p class="fall back">We might have an offer...</p>
+				<p class="fallback">We might have an offer...</p>
 			}
 
 			Prefetch
@@ -3684,9 +3684,113 @@ Lazy Loading
 			@defer(on interaction(greeting); prefetch on hover) {
 
 			Kattintásra kerülne letöltésre, de a hover esetén arra számítunk, hogy kattintani fog, így
-			korábban elkezdi letölteni, hogy mire kattint már ott lent legyen...
+			korábban elkezdi letölteni, hogy mire kattint már lent legyen...
 
+Deploying Applications
 
+	Ha elkészült egy alkalmazás különböző módok vannak build-elni és telepíteni őket
+
+		- SPA (Single Page Application)
+		- SSR (Server Side Rendered)
+		- SSG (Static Side Generation) 
+
+	Ezeknek megfelelően más módokon kell őket deploy-olni.
+
+	A fejlesztés közben használt development server nem egy optimalizált kóddal működik, ott a fejlesztés segítése a cél.
+	- npm start  (http://localhost:4200/)
+
+	Telepítésre kész verziót külön kell fordítani:
+
+	- ng build (npm run build)
+	- Az eredmény a dist folder-ben jön létre
+		- browser folder
+		- server folder (SSR, SSG esetben)
+
+	Single Page Application
+		Egyetlen html oldal kerül letöltésre az összes javascript kóddal együtt.
+		A böngészőben megjelenő minden tartalom a kliens oldalon kerül legenerálásra a javascript kódokkal.
+		Az ilyen applikáció host-olásához elegendő ún. static host szolgáltatás.
+		Semmilyen js kód nem kerül futtatásra a szerveren.
+		Lehetséges hátrányok: 
+			- Nagy alkalmazások esetén induláskor időlegesen hiányozhatnak tartalmak a megjelenítésben.
+			- Kereső motorok nehezebben detektálják az oldal tartalmát (mivel a tartalom a kliens oldalon képződik)
+
+		Deploying példa (Firebase)
+
+			- Login with Google account
+			- Create a new project, tetszőleges névvel
+			- Hosting (for static websites)
+				- Get started
+				- npm install -g firebase-tools
+				- firebase login
+				- firebase init
+					- Kérdések, mely firebase feature-öket szeretnénk használni
+						- Hosting elegendő ebben az esetben (Configure files for Firebase Hosting...)
+					- Melyik project-hez? (existing project)
+					- Select the project
+					- Give where is the public directory 
+						- dist/router/browser
+					- Kérdés: Is it a Single Page App 
+						- yes
+					- Firebase specifikus (konfigurációs) fájlok kerülnek hozzáadásra a projekthez
+				- Build-elni kell az alkalmazást, ha még nem volt
+					- ng build (npm run build) -> dist folder
+				- firebase deploy
+					- Deploy complete!
+					- Kapunk egy elkészített weboldal linket (Hosting URL), ahonnan elérhető a telepített alkalmazás
+				
+			Ez eddig egy kézi telepítési eljárás.
+			Létezik automatikus lehetőség is az Angular-ban.
+
+			ng add @angular/fire
+				
+				Firebase deploy képesség hozzáadása a projecthez (third party package hozzáadása)
+				Automatikusan beállítja a konfigban (angular.json) a deploy szekciót.
+
+			ng deploy
+				Végigviszi a deploy lépéseket, szükség esetén login, ...
+
+	Server Side Rendered Application
+
+		Az SPA hiányosságait próbálja orvosolni ez a lehetőség. Kacifántosabbá teszi az egészet, de bizonyára igény van rá...
+
+		Az ilyen applikáció host-olásához szükséges egy dynamic web server (js kódok futtatására képes...).
+		Firebase is támogatja, Hosting helyett az App Hosting használata szükséges.
+
+		Ebben az esetben egy új oldal lekérése esetén a teljes oldal előállításra kerül a server oldalon,
+		és egy kész oldalt kap a kliens (nincs hiányzó tartalom). Az iniciális renderelés után SPA lesz belőle (hydrated).
+		Így a kezdeti esetben esetlegesen hiányzó tartalom megoldódik és a későbbi használat is gyors marad az SPA-val.
+
+		Kereső motorok is jobban szeretik, ha egyből van tartalom.
+		Viszont esetlegesen tovább tarthat mire az első oldal lejön (user várakozhat)
+		
+		SSR hozzáadása egy létező projekthez (ha nem így volt eredetileg létrehozva)
+
+			ng add @angular/ssr
+				Szükséges library-k hozzáadása, konfigurációs beállítások elvégzése.
+			
+			Létrejön egy server.ts fájl, ami a node.js server kódot tartalmazza.
+			Ez a server állítja elő a dinamikusan keletkező oldalakat a weboldal lekérése esetén. 
+		
+		SSR esetben build esetén nem csak egy browser folder keletkezik, hanem egy server folder is a dist mappában.
+	
+		A lefordított app futtatása (package.json/script részben van az új bejegyzés hozzá):
+
+			npm run serve:ssr:routing
+				Egy másik porton lesz elérhető az app:
+					http://localhost:4000
+
+	Static Site Generation
+
+		Tovább gönygyölítve a hülyeséget mivel az SSR lassabban adja vissza a kért oldalt lehet olyat csinálni, hogy
+		bizonyos oldalak a build-elés folyamán előrenderelésre kerülnek.
+		Ezeket egyből vissza tudja adni a server, mert ezekkel lekéréskor már nem csinál semmit.
+		Viszont ezek csak olyan oldalak lehetnek, amelyeken nincs dinamikus tartalom.
+
+		Ha egy alkalmazás csak SSG oldalakat tartalmaz, elegendő hozzá egy static host, egyéb esetben dynamic host szükséges.
+
+		Az SSR alkalmazások esetén automatikusan prerendelésre kerülnek az erre alkalmas oldalak.
+		
 
 NEWS
 
