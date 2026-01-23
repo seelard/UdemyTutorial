@@ -1656,9 +1656,9 @@ RxJS (Observables)
 		- Létrehoz egy observable-t, ami a megadott időközönként kivált egy eseményt egy folyamatosan növekvő számmal
 		- A hozzáféréshez itt is fel kell iratkozni.
 
-    interval(1000).subscribe({
-      next: (val) => console.log(val),
-    }); 
+			interval(1000).subscribe({
+				next: (val) => console.log(val),
+			}); 
 
 		- A feliratkozás paramétere egy objektum (observer object), ami 3 metódust tartalmazhat 
 			next: kiváltódik minden új adat érkezésekor
@@ -1705,6 +1705,44 @@ RxJS (Observables)
 		Subjects
 			A Subject (pl. BehaviorSubject) egy speciális Observable, de amíg a Subject-ek esetén a változási event kiváltása manuálisan történik,
 			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
+
+
+		fromEvent, exhaustMap
+
+			A fromEvent egy observable-t készít egy event handlerhez.
+
+				import { fromEvent } from 'rxjs';
+
+				const clicks$ = fromEvent(button, 'click');
+
+			exhaustMap: Elnyeli az újabb beérkező adatokat, amíg a belső observable nem végez.
+				(a példában a gombnyomás nem eredményez újabb http kérést, amíg az előző kész nincs)
+
+				fromEvent(button, 'click').pipe(
+					exhaustMap(() => this.http.post('/api/save', data))
+				).subscribe();
+
+			Important rule of thumb
+				If you see map, switchMap, mergeMap, concatMap, or exhaustMap — you should NOT call subscribe() inside.
+
+			Comparison with other mapping operators
+
+			Operator	Behavior
+
+			mergeMap	Run all inner Observables concurrently
+			switchMap	Cancel previous, keep latest
+			concatMap	Queue and run one after another
+			exhaustMap	Ignore new values while one is running
+
+			Mental model
+
+			switchMap → “Latest wins”
+
+			concatMap → “Wait your turn”
+
+			mergeMap → “Everyone at once”
+
+			exhaustMap → “Busy — try again later”
 
 	Signals vs Observables
 
@@ -3791,6 +3829,177 @@ Deploying Applications
 
 		Az SSR alkalmazások esetén automatikusan prerendelésre kerülnek az erre alkalmas oldalak.
 		
+Authentication
+
+	...
+
+NgRx (A Complex State Management System)
+
+	Egy külön package az Angular-hoz, amely bonyolult (nagy összetettségű) project-ek esetén segíthet kezelni a alkalmazásban
+	szereplő állapotokat. Ezek adatok, amelyek általában befolyással vannak a UI-ra
+	Minden ilyen "adat" központosított tárolását, kezelését, ... teszi lehetővé
+	(ahelyett, hogy külön service-ekben, komponensekben lennének elhelyezve).
+
+
+	Store
+		Központi tároló objektum, ahol minden állapot (adat) tárolásra kerül.
+		Ahol szükség van ezekre, oda injektálással hozzáférhető a Store.
+
+	Selectors
+		A komponensek ezeken keresztül tudják megkapni a Store-ban lévő adatokat.
+
+	Actions
+		Fejlesztő által definiált művelet típusok, amelyeket egy-egy adott adaton kell elvégezni.
+
+	Reducers
+		Adatokon végzendő konkrét műveletek
+		Adatok létrehozása is ezzel lehetséges, ami a kezdeti értékadással történik.
+
+	Effects
+		Az adatokon végzett módosítások mellett szükség lehet a módosításkor egyéb műveletek elvégzésére is.
+		Ezek ún. side effect-ek és nem célszerű pl. a reducer kódjában elhelyezni őket, ahol jobb ha csak az adattal
+		való műveletek vannak.
+		Ilyen effect-ek csatolásával lehet az ilyen műveleteket hozzáadni.
+
+	Install NgRx (third party library)
+
+		Meglévő project-hez való hozzáadás:		
+
+		ng add @ngrx/store
+
+		Standalone komponensek esetén a main.ts automatikusan módosításra kerül:
+
+			import { provideStore } from '@ngrx/store';
+
+			bootstrapApplication(AppComponent, {
+			    providers: [provideStore()]
+			});
+
+		Ezzel létrejön a központi Store objektum.
+
+	Reducers
+	Kezdetben a Store üres természetesen. Adatok létrehozásához szükség van egy Reducer-re.
+	Ami az adatokon végzendő műveleteket tartalmazza.
+	Tartalmazza az adat típusát és kezdeti értékét is.
+	Így ezen keresztül jön létre az adat a Store-ban.
+	
+	Célszerű külön fájlba elhelyezni a reducer kódját
+		(itt nincs művelet hozzáadva még... csak a kiindulási érték)
+
+		import { createReducer, on } from "@ngrx/store";
+
+		const initialState = 0;
+
+		export const counterReducer = createReducer(
+		  initialState,
+		);
+
+	A main.ts-ben hozzáadni a Store-hoz:
+	(itt kap nevet az adat (counter), típusa pedig a reducer által szolgáltatott adat típusa lesz (number))
+
+		bootstrapApplication(AppComponent, {
+		    providers: [provideStore({counter: counterReducer})]
+		});
+
+	Adatok lekérése a Store-ból
+		A lekérdezett adat egy Observable, amelynek típusa az adat típusának megfelelőnel kell lenni.
+		Ezért a $, ami observable-k konvencionális jelölése (nem kötelező, de jó szokás)
+
+		count$: Observable<number>;
+
+		constructor(private store: Store<{counter: number}>) {
+			this.count$ = store.select('counter');
+		}
+
+		A konstruktorban kerül beinjektálásra a Store-t.
+		A Store-ból a select-tel lehet lekérni a nevezett adatot.
+		Ahhoz, hogy a select-nél az adat neve (counter) ismert legyen, szükséges a generikus Store-nál megadni a típust,
+		Store<{counter: number}>
+
+		Az Observable esetén szükséges a subscribe(), de adott esetben nem kell kézzel feliratkozni, 
+		mert az async Pipe használható.
+
+		<p class="counter">{{ count$ | async }}</p>
+
+	Adatok módosítása (Actions)
+		Reducer-ekben lesz a módosítási logika.
+		Reducer-ek nem közvetlenül vannak meghívva, hanem Action-ök segítségével (dispatch Action).
+
+	Célszerű az Actions kódot is külön fájlba helyezni
+
+		import { createAction } from "@ngrx/store";
+
+		export const increment = createAction(
+		  '[Counter] Increment'
+		);
+
+		A createAction paraméterként alapból egy string azonosítót kap.
+		Az azonosító itt kerül meghatározásra, valamilyen egyedi azonosítónak kell lennie (string).
+		Konvencionális jelölés (nem kötelező), hogy a név elé írják szögletes zárójelben, hogy mely adatra vonatkozik.
+
+		A létrejött változó (increment (Action)) az export-tal hozzáférhető máshonnan.
+
+	A Reducer-ben kell beállítani, hogy mely Action-re reagál és azt, hogy mit (hogyan módosítja az adatot)
+
+		export const counterReducer = createReducer(
+		  initialState,
+		  on(increment, (state) => state + 1)
+		);
+
+		on - @ngrx/store által szolgáltatott függvény, amivel a figyelt Action beállítható...
+			Fontos, hogy a módosítást végző függvény sose módosítsa az eredeti adat példányt, hanem egy újat adjon vissza.
+			Ez akkor lényeges, ha valamilyen referencia típusról van szó, pl. array esetén egy új array jöjjön létre a módosítással.
+			Az eredeti adat a state paraméterben érkezik.
+
+	Action aktiválása (dispatch)
+
+		constructor(private store: Store) {}
+
+		increment() {
+			this.store.dispatch(increment());
+		}
+
+		Az adott komponensben a konstruktorban injektálni kell a Store-t.
+		A megfelelő helyen dispatch függvény segítségével hívható az Action.
+		Fontos, hogy az adott Action-t itt függvényhívásként kell megadni (increment()) !
+
+
+	Paraméter csatolása Action-höz
+
+		Az increment fix-en egyel növeli az értéket, így nem igényel paramétert.
+		Ha meg akarjuk határozni mennyivel növeljen, akkor szükséges.
+
+		Az Action definícióban adhat meg:
+
+			import { createAction, props } from "@ngrx/store";
+
+			export const increment = createAction(
+			  '[Counter] Increment', 
+			  props<{value: number}>()
+			);
+		
+		props függvény használatával, ahol a generikus típus határozza meg a paramétert.
+		'value' egy tetszőleges név és a típus, ami még fontos.
+
+		A hívás helyén (dispatch) a szükséges paramétert meg kell adni:
+
+		increment() {
+			this.store.dispatch(increment({ value: 2 }));
+		}
+
+		Ahhoz, hogy a paraméter értéke érvényre jusson a Reducer-ben is módosítani kell a műveletet.
+
+		export const counterReducer = createReducer(
+			initialState,
+			on(increment, (state, action) => state + action.value)
+		);
+
+		Az eredeti adat (state) paraméter mellé automatikusan hozzáadódik az 'action' paraméter, ami tartalmazza
+		a props függvénnyel definiált value property-t.
+
+	Selectors
+
+
 
 NEWS
 
