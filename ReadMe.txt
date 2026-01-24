@@ -3860,6 +3860,7 @@ NgRx (A Complex State Management System)
 		Ezek ún. side effect-ek és nem célszerű pl. a reducer kódjában elhelyezni őket, ahol jobb ha csak az adattal
 		való műveletek vannak.
 		Ilyen effect-ek csatolásával lehet az ilyen műveleteket hozzáadni.
+		Lehetséges ilyen effect-ek: HTTP kérés, localStorage tárolás, log üzenet a console-ra, ...
 
 	Install NgRx (third party library)
 
@@ -3998,6 +3999,121 @@ NgRx (A Complex State Management System)
 		a props függvénnyel definiált value property-t.
 
 	Selectors
+
+		Külön selector-okra nincs minden esetben szükség.
+		Lekérni egy adatot a beépített select() függvénnyel lehet.
+
+		this.count$ = store.select('counter');
+
+		A select függvény többféle paraméterezéssel is hívható.
+		Az egyik ilyen, amikor az adat nevét (key) adjuk meg.
+
+		Lehetséges azonban olyan megadás, amikor egy függvény a paraméter.
+		A függvény formátuma:
+		
+			export const selectCount = (state: { counter: number }) => state.counter;
+
+		Olyan key-t kell megadni az object típusban, ami van a store-ban (counter)
+		    providers: [provideStore({counter: counterReducer})]
+
+		Ez a függvény használható a select-ben
+
+			this.count$ = store.select(selectCount);
+
+		Ez a függvényes megoldás akkor lehet jó, ha pl. befolyásolni szeretnénk a visszakapott adatot még a beolvasásnál:
+
+			export const selectDoubleCount = (state: { counter: number }) => state.counter * 2;
+
+		Tekinthetjük a központosítás még egy fokának, mivel ha az adott függvény sok helyről kerül felhasználásra, 
+		és változik valami a tárolásban, akkor csak a függvényben kell módosítani (jó esetben...).
+
+		Több selector függvény fűzhető össze a createSelector-ral, így a fenti eset megadható így is:
+
+			export const selectDoubleCount = createSelector(
+				selectCount,
+				(state) => state * 2
+			);
+
+	Effects
+		Használatához szükséges plusz package hozzáadása
+
+		ng add @ngrx/effects
+		
+		Standalone komponensek esetén a main.ts automatikusan módosításra kerül:
+
+			import { provideEffects } from '@ngrx/effects';
+
+			bootstrapApplication(AppComponent, {
+			    providers: [provideStore({ counter: counterReducer }), provideEffects()]
+			});
+
+		Célszerű külön fájlba rendeznia az effect-eket
+
+		import { Actions, createEffect, ofType } from "@ngrx/effects";
+		import { tap } from "rxjs";
+		import { decrement, increment } from "./counter.actions";
+
+		export class CounterEffects {
+			saveCount = createEffect(() =>
+				this.actions$.pipe(
+					ofType(increment, decrement),
+					tap((action) => {
+						console.log(action)
+						localStorage.setItem('count', action.value.toString());
+					})
+				), { dispatch: false }
+			);
+
+			constructor(private actions$: Actions) { }
+		}
+
+		Egy osztály, amelynek property-jeit tekinthetjük egy-egy pipeline-nak, amelyek egy-egy effect megvalósításai (saveCount).
+		Az action által érintett adatot írja a localStorage-be.
+
+		A konstruktorban kell beinjektálni az Actions observable-t.
+		Ez kiváltódik minden alkalommal, amikor az alkalmazásban bárhol valamilyen action kerül meghívásra (dispatch).
+		
+		createEffect függvénnyel hozható létre egy effect (pipeline), amelynek paramétere egy függvény, 
+		ami az observable láncot írja le az adott esetre.
+
+		ofType() - szűrő, amivel kiválasztható melyik action(ök)-re legyen hatással az effect.
+
+		tap() - Valamilyen művelet hajtható végre vele, ahol az action értéke paraméterként megvan.
+
+		{ dispatch: false } - Amennyiben az effect-ben végrehajtott művelet nem hív egyéb action-t (dispatch), akkor ez beállítandó.
+
+	Store-ban tárolt adatok elérése effect-ekből
+		
+		A fenti példában az action az increment vagy decrement értéket tartalmazza, a konkrét counter érték nincs itt.
+		Így a tárolt adat sem a counter.
+
+		Ehhez be kell olvasni a Store-ból a counter-t.
+
+		export class CounterEffects {
+			saveCount = createEffect(() =>
+				this.actions$.pipe(
+					ofType(increment, decrement),
+					withLatestFrom(this.store$.select(selectCount)),
+					tap(([action, counter]) => {
+						console.log(action)
+						localStorage.setItem('count', counter.toString());
+					})
+				), { dispatch: false }
+			);
+
+			constructor(
+				private actions$: Actions,
+				private store$: Store<{ counter: number }>
+			) { }
+		} 
+
+		Konstruktorban be kell húzni a Store-t.
+
+		withLatestFrom - rxjs operator, amellyel egyéb observable-k húzhatók be az adott pipeline-ba.
+			- Jelen esetben a select-tel kiválasztott adat observable-je lesz az
+			- A továbbiakban a pipeline paramétere megváltozik (az eddigi action helyett)
+				- Egy tömb lesz, amely tartalmazza az action-t és a beemelt observable-ket.
+				- [action, counter] // ez esetben a lekérdezett store adat (counter) observabe-t
 
 
 
