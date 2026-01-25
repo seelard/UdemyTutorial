@@ -4115,6 +4115,131 @@ NgRx (A Complex State Management System)
 				- Egy tömb lesz, amely tartalmazza az action-t és a beemelt observable-ket.
 				- [action, counter] // ez esetben a lekérdezett store adat (counter) observabe-t
 
+	Effect-ből hívott (dispatch) Action
+
+		{ dispatch: false } - Ebben az esetben ez nem fog kelleni, mivel a default a true.
+
+		Két új Action:
+
+			export const init = createAction(
+				'[Counter] Init'
+			)
+
+			export const set = createAction(
+				'[Counter] Set', 
+				props<{value: number}>()
+			);
+
+		- set - ezzel lehet egy megadott értékre állítani a store-ban lévő counter-t
+			- Ehhez kell majd egy reducer, mivel itt történik a store adat beállítása.
+
+		- init - beolvassa a localStorage-ban tárolt értéket és beállítja a store-ban
+			- Ehhez egy effect kell, ami olvas a localStorage-ból
+			- A beolvasott értéket kiírja a store-ba a set action hívásával
+				- Így ehhez nem kell külön reducer
+
+		Reducer:
+
+			export const counterReducer = createReducer(
+				initialState,
+				on(increment, (state, action) => state + action.value),
+				on(decrement, (state, action) => state - action.value),
+				on(set, (state, action) => action.value)
+			);
+
+		- set az új reducer. A kapott értéket állítja be, így azt adja vissza módosítás nélkül.
+
+		Effect:
+
+			loadCount = createEffect(() =>
+				this.actions$.pipe(
+					ofType(init),
+					switchMap(() => {
+						const storedCounter = localStorage.getItem('count');
+
+						if (storedCounter) {
+							return of(set({ value: +storedCounter }));
+						}
+						else {
+							return of(set({ value: 0 }));
+						}
+					})
+				)
+			);
+
+		Amikor egy action meghívásra kerül (dispatch) először a hozzá tartozó reducer fut le, majd az esetleges effect-ek.
+		Jelen esetben az effect pipeline egy set action-t eredményez, ami az init után automatikusan futtatásra kerül (dispatch),
+		mivel nincs beállítva a { dispatch: false }.
+
+		What actually happens when you call store.dispatch(init())
+
+		1. You dispatch init
+
+			store.dispatch(init());
+
+			This does two things at the same time:
+			- The init action goes to reducers
+			- The init action goes to effects
+
+		2. The reducer runs first (synchronously)
+
+			Reducers that handle init will execute immediately.
+			If your reducer does not handle init, nothing happens in the state at this step.
+
+		3. The effect sees init
+
+		- Your effect:
+
+			ofType(init),
+			map(() => set({ value }))
+
+			ofType(init) matches the action
+
+		- The effect executes
+
+		- The map returns a new action: set({ value })
+
+		⚠️ Important:
+
+			The effect does not replace init
+			It emits a new action.
+
+		4. NgRx automatically dispatches the emitted action
+			
+			Because createEffect defaults to { dispatch: true }, NgRx does:
+
+			store.dispatch(set({ value }));
+
+			This happens after init was already processed.
+
+		5. The set action goes through the whole pipeline again
+
+		- Just like any normal action:
+
+			Reducers handle set
+			Effects listening for set are triggered
+
+		Visual flow (important)
+		store.dispatch(init())
+		        │
+		        ▼
+		   Reducers handle init
+		        │
+		        ▼
+		   Effects see init
+		        │
+		        ▼
+		   Effect emits set(...)
+		        │
+		        ▼
+		   store.dispatch(set(...))
+		        │
+		        ▼
+		   Reducers handle set
+
+
+		👉 Nothing is replaced
+		👉 Nothing is skipped
 
 
 NEWS
