@@ -4241,6 +4241,74 @@ NgRx (A Complex State Management System)
 		👉 Nothing is replaced
 		👉 Nothing is skipped
 
+Service Workers
+
+	Egy service worker az Angular-ban egy háttérben, az Angular app-tól függetlenül futó script.
+
+	- Bele tud nézni a hálózati forgalomba (intercept network requests)
+	- Cache-elni tud fájlokat és API-tól érkező adatokat
+	- A cache-elt adatokat szolgáltatni tudja, amikor offline a rendszer
+	- App verzió frissítést végezhet a háttérben
+
+	Egy Angular service worker hasznos
+	
+	Offline support
+	- Az app elindul offline állapotban is
+	- Cache-elt adatokkal működhet tovább
+
+	Gyorsabb betöltődés
+	- Cache-el HTML-t, JS-t, CSS-t, képeket
+	- Cache-elt elemeket azonnal szolgáltatja, újratöltés helyett
+
+	Cache-elési metódus szabályozható
+	- Cache-first (casche-elt adatok használata, azok frissítése a háttérben)
+	- Network-first (hálózattal próbálkozik először, ha nincs, akkor cache-ből)
+	- Stale-while-revalidate (elavult újraérvényesítés közben)
+
+	- Beállítás az ngsw-config.json fájlban
+
+		"dataGroups": [{
+		  "name": "api",
+		  "urls": ["/api/**"],
+		  "cacheConfig": {
+		    "strategy": "freshness",
+		    "maxSize": 100,
+		    "maxAge": "1h"
+		  }
+		}]
+
+	App verziófrissítés újratöltés nélkül
+	- Detektálja az új verziót
+	- Háttérben letölti
+	- Értesítést adhat az új verzióról a felhasználónak
+
+		this.updates.available.subscribe(() => {
+		  // show "New version available" message
+		});
+
+	Telepíthető Web App lehetősége (PWA)
+	- Az Angular App telepíthető desktop vagy mobil eszközre
+	- Teljes képernyős megjelenítés
+	- Úgy működik, mint egy natív app
+
+	Amit NEM tud egy Angular service worker
+	- Angular service-ehk helyettesítése
+	- Adatok megosztása böngésző oldalak közt
+	- Backend vagy adatbázis
+	- Bonyolult (erőforrás igényes) számítások elvégzése
+
+	Service worker hozzáadása egy project-hez
+
+	add @angular/pwa
+
+	- Elvégzi a szükséges dolgokat ill. létrehozza a ngsw-config.json fájlt, amelyben alapvető beállítások végezhetőek...
+
+
+	Megjegyzés:
+	Angular Service worker technológia még van, nincs "deprecated" status-ban, de viszonylag kevés szolgáltatást nyújt.
+	Az Angular nem fejleszti ezt az irányt, de kisebb igények esetén egy stabil megoldás lehet ma is.
+
+	Helyette ajánlott megoldások: Workbox
 
 NEWS
 
