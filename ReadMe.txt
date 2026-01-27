@@ -1526,7 +1526,7 @@ Change Detection mechanisms
 							A service-ben lévő adatok változásáról kell értesülni az érintett komponensben, ahol kiváltható a change detection.
 
 							Erre a célra az Angular-ba integrált külső library használható: RxJS
-							Third party library, de egy elég sokat használt része az Angular-nak.
+							Third party library, de egy elég szorosan van integrálva az Angular-ba.
 
 							A service-ben
 
@@ -1648,7 +1648,7 @@ RxJS (Observables)
 		Az előző fejezetben alkalmazott BehaviorSubject is egy observable alkalmazása volt.
 
 		Az observable egy subscriber, amire fel kell iratkozni. 
-		Feliratkozás nélkül nem lehet az adatokhoz férni (így ez alapvető)
+		Feliratkozás nélkül nem lehet az adatokhoz férni (így a feliratkozás alapvető)
 
 		Pl.:
 
@@ -1700,7 +1700,7 @@ RxJS (Observables)
 
 			- Kettesével fog számolni
 
-			- több operator is megadható egymás után (vesszővel elválasztva).
+			- több operator is megadható egymás után (vesszővel elválasztva - pipeline).
 
 		Subjects
 			A Subject (pl. BehaviorSubject) egy speciális Observable, de amíg a Subject-ek esetén a változási event kiváltása manuálisan történik,
@@ -4115,7 +4115,7 @@ NgRx (A Complex State Management System)
 				- Egy tömb lesz, amely tartalmazza az action-t és a beemelt observable-ket.
 				- [action, counter] // ez esetben a lekérdezett store adat (counter) observabe-t
 
-	Effect-ből hívott (dispatch) Action
+	Effect-ből "hívott" (dispatch) Action
 
 		{ dispatch: false } - Ebben az esetben ez nem fog kelleni, mivel a default a true.
 
