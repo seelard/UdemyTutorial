@@ -1640,6 +1640,12 @@ Zoneless
 
 RxJS (Observables)
 
+	RxJS
+		Reactive Extensions (ReactiveX - rx) Library for JavaScript
+		Eredetileg Microsoft által írt library adatsorozatokon végzett műveletekhez, független attól, hogy az adatok
+		szinkron vagy aszinkron érkeznek.
+		Ezt több programozási nyelvben is elérhető, az rxjs a JavaScripthez implementált verzió. 
+
 	Observables
 		- A Stream of Data
 		- RxJS Observable-k adatokat tartalmazó eseményeket váltanak ki időről időre
@@ -1669,7 +1675,57 @@ RxJS (Observables)
 			Amikor csak next van megadva megadható a subscribe után egyetlen függvényként.
 			interval(1000).subscribe((val) => console.log(val)); 
 
-		- Good Practice: Leiratkozás
+		Adatok Observable-re alakítása
+		- of(), from() függvények
+			Egy adatból készítenek observable-t. Azonnal emittálják az értéket és befejezik a működést (complete)
+
+			const numbers$ = from([1, 2, 3, 4, 5]);
+	
+			numbers$.subscribe((data) => {
+				console.log('subscriber', data);
+			})
+
+			of - A példában az egész tömböt egy adatként emittálja
+			from - A példában a tömb elemeit egyenként emittálja
+
+		- Promise -> Observable
+
+			FONTOS!
+			Ha az átalakítandó egy Promise, akkor csak a from használható!
+
+			const messagePromise = new Promise((resolve) => {
+				setTimeout(() => { resolve('resolved'); }, 1000);
+			});
+
+			const message$ = from(messagePromise);
+
+			message$.subscribe((msg) => {
+				console.log('subscriber', msg);
+			})
+
+		- fromEvent() függvény
+
+			A fromEvent egy observable-t készít egy event handlerhez.
+
+			import { fromEvent } from 'rxjs';
+
+			const clicks$ = fromEvent(button, 'click');
+
+		- Observable -> Promise
+
+			toPromise : deprecated (már nem használatos)
+			helyette van pl. firstValueFrom
+
+			Promise nem helyettesíti az Observable-t, két különböző dolog.
+			A firstValueFrom is csak az első emittált adatot veszi, nem pedig folytatólagosan...
+
+		Marble diagram
+			rxjs függvények és operátorok működését bemutató folyamatábrák
+			
+			https://rxmarbles.com/
+
+
+		Good Practice: Leiratkozás
 
 			private destroyRef = inject(DestroyRef);
 
@@ -1707,16 +1763,10 @@ RxJS (Observables)
 			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
 
 
-		fromEvent, exhaustMap
+		exhaustMap operátor
 
-			A fromEvent egy observable-t készít egy event handlerhez.
-
-				import { fromEvent } from 'rxjs';
-
-				const clicks$ = fromEvent(button, 'click');
-
-			exhaustMap: Elnyeli az újabb beérkező adatokat, amíg a belső observable nem végez.
-				(a példában a gombnyomás nem eredményez újabb http kérést, amíg az előző kész nincs)
+			Elnyeli az újabb beérkező adatokat, amíg a belső observable nem végez.
+			(a példában a gombnyomás nem eredményez újabb http kérést, amíg az előző kész nincs)
 
 				fromEvent(button, 'click').pipe(
 					exhaustMap(() => this.http.post('/api/save', data))
