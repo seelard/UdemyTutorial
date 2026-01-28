@@ -1603,6 +1603,20 @@ Change Detection mechanisms
 
 								Ez a pipe kiegészítés elvégzi az összes fenti műveletet (fel-leiratkozás, change detection megoldás,...)
 
+								Template-ben használva hasznos lehet, ha egy observable több mezője is érintett a UI-n a következő szintaxis:
+
+								@if (data$ | async; as data) {
+								  <div>{{ data.msg }}</div>
+								  <div>{{ data.name }}</div>
+								}
+			
+								'as' keyword használata. Ha több helyen is a data$ | async lenne alkalmazva, az annyi feliratkozást jelentene.
+								Így viszont kap egy alias nevet és a többi hivatkozás ugyanarra a subscription-re utal.
+
+								MEGJEGYZÉS:
+								Ha van egyéb helyen subscribe/unsubscribe ugyanerre az Observable-re (message$), az nincs befolyással az
+								async pipe esetre, mivel az egy külön feliratkozás...
+
 Zoneless
 
 	- signal-ok alkalmazásával az Angular 18-tól kezdve lehetőség van a zone.js teljes elhagyására
@@ -1675,8 +1689,105 @@ RxJS (Observables)
 			Amikor csak next van megadva megadható a subscribe után egyetlen függvényként.
 			interval(1000).subscribe((val) => console.log(val)); 
 
+		Létezik sok egyéb RxJS függvény, amely observable-t hoz létre.
+		De az RxJS függvények zöme már létező observable objektumok vagy azok adatainak befolyásolására használható.
+		Ezek a függvények az RxJS operatorok (RxJS Operators)
+
+		RxJS documentation Operators page (https://rxjs.dev/guide/operators)
+
+		Ezek használatához kell a pipe() hívás.
+
+		- map operator, ami az adatok átalakítására használható.
+
+			const subscription = interval(1000).pipe(
+				map((val) => val * 2)
+			).subscribe({
+				next: (val) => console.log(val),
+			}); 
+
+			- Kettesével fog számolni
+
+		- filter operator
+
+			const subscription = interval(1000).pipe(
+				filter((val) => val % 2 === 0)
+			).subscribe({
+				next: (val) => console.log(val),
+			}); 
+
+			- Minden második (csak a páros) elemet adja tovább...
+
+			Speciális, de elterjedt használat:
+
+				source$.pipe(
+				  filter(Boolean)
+				)
+				
+				ugyanaz, mint:
+
+				source$.pipe(
+				  filter(value => Boolean(value))
+				)
+
+			Csak a JavaScript szabályok szerinti truthy értékeket engedi tovább.
+			Gyakran használatos elő null értékek kiszűrésére.
+
+		- Több operator is megadható egymás után (vesszővel elválasztva - pipeline).
+
+			const users$: Observable<User[]> = new Observable((observer) => {
+				setTimeout(() => {
+					observer.next([
+						{ id: '1', name: 'John', age: 30, isActive: true },
+						{ id: '2', name: 'Jack', age: 35, isActive: true },
+						{ id: '3', name: 'Mike', age: 25, isActive: true },
+					]);
+				}, 2000);
+			});
+
+			// filter + map
+			// Még a subscription előtti, pipeline-nal felszerelt observable, külön változóban tárolható,
+			// arra később akár több helyről is fel lehet iratkozni...
+			const userNames$ = users$.pipe(
+				filter((users) => users.every((user) => user.isActive)),
+				map((users) => {
+					return users.map((user) => user.name);
+				}),
+			);
+
+			userNames$.subscribe((userNames) => console.log('userNames', userNames)); 
+
+		- take operator
+
+			const intervalCount = interval(1000);
+			const takeFive = intervalCount.pipe(take(5));
+			takeFive.subscribe(x => console.log(x));
+
+			Take the first 5 seconds of an infinite 1-second interval Observable.
+			After that, it completes.
+			Az unsubscribe is automatikus, de sosem árt minden subscribe-hoz megírni az unsubscibe-t is.
+
+		- takeWhile operator
+
+			Itt a paraméter egy predicate.
+			Addig emittálja az adatokat, amíg azok megfelelnek a feltételnek, egyébként befejezi a működést (complete)
+
+			Több overload-ja is létezik kiegészítő paraméterekkel...
+
+		- takeUntil
+
+			Paramétere egy másik Observable. 
+			A source observable addig emittál, amíg a paraméter Observable nem emittál egyet.
+			Az állítja le a source működését.
+
+			const source = interval(1000);
+			const clicks = fromEvent(document, 'click');
+			const result = source.pipe(takeUntil(clicks));
+			result.subscribe(x => console.log(x));
+
 		Adatok Observable-re alakítása
+
 		- of(), from() függvények
+
 			Egy adatból készítenek observable-t. Azonnal emittálják az értéket és befejezik a működést (complete)
 
 			const numbers$ = from([1, 2, 3, 4, 5]);
@@ -1724,7 +1835,6 @@ RxJS (Observables)
 			
 			https://rxmarbles.com/
 
-
 		Good Practice: Leiratkozás
 
 			private destroyRef = inject(DestroyRef);
@@ -1739,31 +1849,25 @@ RxJS (Observables)
 				})
 			}
 
-			Létezik sok egyéb RxJS függvény, amely observable-t hoz létre.
-			De az RxJS függvények zöme már létező observable objektumok vagy azok adatainak befolyásolására használható.
-			Ezek a függvények az RxJS operatorok (RxJS Operators)
+			Ezen kívül van mégegy lehetőség: takeUntilDestroyed
+			Nem rxjs saját operator, hanem Angular kiegészítés:
 
-			RxJS documentation Operators page (https://rxjs.dev/guide/operators)
+			import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
-			Ezek használatához kell a pipe() hívás.
-			- map operator, ami az adatok átalakítására használható.
+			interval$ = interval(1000).pipe(takeUntiDestroyed());
 
-				const subscription = interval(1000).pipe(
-					map((val) => val * 2)
-				).subscribe({
+			ngOnInit() {
+				this.interval$.subscribe({
 					next: (val) => console.log(val),
 				}); 
-
-			- Kettesével fog számolni
-
-			- több operator is megadható egymás után (vesszővel elválasztva - pipeline).
+			}
 
 		Subjects
 			A Subject (pl. BehaviorSubject) egy speciális Observable, de amíg a Subject-ek esetén a változási event kiváltása manuálisan történik,
 			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
 
 
-		exhaustMap operátor
+		- exhaustMap operátor
 
 			Elnyeli az újabb beérkező adatokat, amíg a belső observable nem végez.
 			(a példában a gombnyomás nem eredményez újabb http kérést, amíg az előző kész nincs)
@@ -1793,6 +1897,34 @@ RxJS (Observables)
 			mergeMap → “Everyone at once”
 
 			exhaustMap → “Busy — try again later”
+
+		- combineLatest operator
+
+			Több Observable-t kapcsol össze.
+			Ha valamelyiken jön emittált adat, emittál egyet a többi observable utolsó adataival együtt.
+			Akkor kezdi az emittálást, ha mindegyik bekombinált Observable egyet már emittált.
+
+			const firstTimer = timer(0, 1000); // emit 0, 1, 2... after every second, starting from now
+			const secondTimer = timer(500, 1000); // emit 0, 1, 2... after every second, starting 0,5s from now
+			const combinedTimers = combineLatest([firstTimer, secondTimer]);
+			combinedTimers.subscribe(value => console.log(value));
+
+			Lehetnek a kombinált observable-k tömbben, objektumban...
+			
+			const observables = {
+			  a: of(1).pipe(delay(1000), startWith(0)),
+			  b: of(5).pipe(delay(5000), startWith(0)),
+			  c: of(10).pipe(delay(10000), startWith(0))
+			};
+			const combined = combineLatest(observables);
+			combined.subscribe(value => console.log(value));
+
+			Rendelkezik egyéb overload-okkal is, kiegészítő paraméterekkel...
+
+	RxJS operator decision tree
+	https://rxjs.dev/operator-decision-tree
+
+		rxjs on-line dokumentációban található tool, segíteni megtalálni a megfelelő operátor(oka)t egy adott feladathoz...
 
 	Signals vs Observables
 
@@ -1938,6 +2070,50 @@ RxJS (Observables)
 
 Sending HTTP Requests and Handling Responses
 
+	Tesztelésre használható server: json-server, egy külön package
+
+		npx json-server db.json --port 3004
+
+		- Lokálisan telepíti, ha még nincs fenn
+		- db.json a teszt adatok fájlja (mock database file)
+		- port 3004 → the API will be available at http://localhost:3004
+
+		You automatically get endpoints like:
+
+			GET http://localhost:3004/users
+			GET http://localhost:3004/users/1
+			POST http://localhost:3004/posts
+			PUT / DELETE / PATCH supported out of the box
+
+		db.json példa:
+
+		{
+		  "comments": [
+		    {
+		      "id": "1",
+		      "body": "First comment",
+		      "username": "Jack",
+		      "userId": "1",
+		      "parentId": null,
+		      "createdAt": "2021-08-16T23:00:33.010+02:00"
+		    },
+		    {
+		      "id": "2",
+		      "body": "Second comment",
+		      "username": "John",
+		      "userId": "2",
+		      "parentId": null,
+		      "createdAt": "2021-08-16T23:00:33.010+02:00"
+		    }, 
+		  ]
+		}
+
+	ajax() method
+
+		rxjs saját, HTTP kéréseket kezelő függvénye (native rxjs függvény).
+
+		Használható az Angular-ban is, de helyette célszerűbb az Angular saját megoldását használni (HttpClient).
+		
 	HttpClient: Angular service http kérések kezelésére
 
 		Egy adott komponensben:
@@ -1957,6 +2133,9 @@ Sending HTTP Requests and Handling Responses
 			bootstrapApplication(AppComponent, {
 				providers: [provideHttpClient()]
 			}).catch((err) => console.error(err));
+
+		Megjegyzés:
+			Ha van app.config.ts, akkor a main.ts helyett ott szerepel ez a rész.
 
 		Http kérés a komponensben:
 
@@ -4361,6 +4540,10 @@ Service Workers
 	Helyette ajánlott megoldások: Workbox
 
 NEWS
+
+	Loading spinners
+		CSS-ben megvalósított forgó "homokórák"...
+		https://loading.io/css/
 
 	Angular DevTools
 		Böngésző (Chrome) kiegészító debug-olni, elemezni egy Angular alkalmazást...
