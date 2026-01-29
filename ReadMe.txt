@@ -1867,6 +1867,38 @@ RxJS (Observables)
 			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
 
 
+		Subject
+			Nem tárol adatot, csak közvetíti a next-nél átadott értéket.
+
+		BehaviorSubject
+			Adatot is tárol. Tehát pl. egy service-ben alkalmazva a felügyelt adatokat (pl. adatok tömbje, ...) nem kell lokálisan tárolni egy
+			külön változóban, mert a BehaviorSubject tartalmazza (elérhető a pl. getValue-val).
+
+			messages$ = new BehaviorSubject<string[]>([]);
+
+			addMessage(message: string) {
+			  const current = this.messages$.value;
+			  this.messages$.next([...current, message]);
+			}
+
+			Ebben az alkalmazásban célszerű lehet Observable-re alakítani, így a felhasználás helyén nem lehet közvetlenül elérni az egyes elemeket
+			(ott nem lesz getValue).
+			
+			private messagesSubject = new BehaviorSubject<string[]>([]);
+			messages$ = this.messagesSubject.asObservable();
+
+			addMessage(message: string) {
+			  this.messagesSubject.next([
+			    ...this.messagesSubject.value,
+			    message
+			  ]);
+			}
+
+		ReplaySubject
+			A Subject olyan alakja, ahol egy subscription esetén a subscriber megkapja az összes feliratkozása előtti adatot is.
+			Sima Subject esetén azokról nem lenne tudomása, mivel csak a feliratkozás után emittált-akat kapná meg.
+
+
 		- exhaustMap operátor
 
 			Elnyeli az újabb beérkező adatokat, amíg a belső observable nem végez.
@@ -1920,6 +1952,102 @@ RxJS (Observables)
 			combined.subscribe(value => console.log(value));
 
 			Rendelkezik egyéb overload-okkal is, kiegészítő paraméterekkel...
+
+		- forkJoin operator
+
+			Több Observable-t kapcsol össze.
+			Ha mindegyik Observable befejeződik (complete), akkor emittál egyet mindegyik Observable utoljára emittált
+			adatával.
+
+			Pl. akkor hasznos, ha több HTTP kérés van egymás után kiküldve és akkor akarjuk folytatni a végrehajtást,
+			ha mindegyik visszatért. Egy forkJoin-nal össze lehet fogni ezeket...
+
+			    const posts$ = this.http.get('http://localhost:3004/posts');
+			    const comments$ = this.http.get('http://localhost:3004/comments');
+
+			    forkJoin({
+			      posts: posts$,
+			      comments: comments$,
+			    }).subscribe((result) => { console.log(result); }); 
+
+			Az Observable-k lehetnek tömbben vagy egy object-ben. Az eredmény egy ugyanolyan struktúrában lesz.
+			Az object célszerű, mert jól olvasható az eredményben is melyik adat hová tartozik...
+
+		- withLatestFrom operator
+			
+			Egyéb observable-k húzhatók be az adott pipeline-ba.
+			Akkor hasznos, ha egy fő adatfolyamunk van, de annak emittált értéke függ egyéb observable-k adataitól.
+			Amikor a source Observable emittál, akkor az emittált adat kiegészül a csatolt Observable-k utoljára emittált értékeivel.
+
+		- distinct operator
+
+			A beérkező adatok közül csak azt emittálja, ami még korábban nem volt (csak a különbözőeket)
+
+			of(1, 1, 2, 2, 2, 1, 2, 3, 4, 3, 2, 1)
+			  .pipe(distinct())
+			  .subscribe(x => console.log(x));
+
+			// Outputs
+			// 1
+			// 2
+			// 3
+			// 4
+
+			of(
+			  { age: 4, name: 'Foo'},
+			  { age: 7, name: 'Bar'},
+			  { age: 5, name: 'Foo'}
+			)
+			.pipe(distinct(({ name }) => name))
+			.subscribe(x => console.log(x));
+
+			// Outputs
+			// { age: 4, name: 'Foo' }
+			// { age: 7, name: 'Bar' }
+
+			// Használható lenne ez a szintaxis is...
+			.pipe(distinct((data) => data.name))
+
+		- distinctUntilChanged operator
+
+			Az előző emittált értéktől függően csak akkor emittál, ha az különbözik az előzőtől.
+			Lehet saját összehasonlító függvényt is megadni (megmondhatjuk mit tekintünk különbözőnek).
+
+		- distinctUntilKeyChanged operator
+
+			Viselkedése ugyanaz, mint a distinctUntilChanged, de object típusú adat esetén használható és meg kell adni
+			egy konkrét key nevét, amelyik alapján történik az összehasonlítás. 
+			Lehet saját összehasonlító függvényt is megadni (megmondhatjuk mit tekintünk különbözőnek).
+
+		- debounceTime operator
+
+			Adott idővel késlelteti az esemény kiváltódását és ha időközben újra kiváltódik, akkor csak az utolsó kerül 
+			emittálásra. Tipikusan, ha nem akarjuk, hogy gyors billentyűzés esetén minden leütés kiváltson valamit.
+			Példa: a form-ok kezelésénél...
+
+		- throttleTime operator
+
+			Emittál egy adatot a source-ról, utána adott ideig tiltja az emittálást.
+			Ezt a folyamatot ismétli.
+
+		- retry operator
+
+			Hiba esetén újra emittálja az adatot.
+			Pl. egy HTTP hívást tartalmazó pipeline esetén a hívás sikertelensége esetén újra próbálkozik.
+
+			this.http
+				.get('http://localhost:3004/comments');
+				.pipe(retry(3))
+				.subscribe(result => console.log(result));
+			
+			3x újrapróbálkozik. Viszont gyorsan egymás után. Jobb lenne közben kis várakozás.
+
+			this.http
+				.get('http://localhost:3004/comments');
+				.pipe(retry({count: 3, delay: 2000}))
+				.subscribe(result => console.log(result));
+
+			3x újrapróbálkozik, köztük 2 másodperc szünettel.
 
 	RxJS operator decision tree
 	https://rxjs.dev/operator-decision-tree
