@@ -2412,6 +2412,44 @@ Sending HTTP Requests and Handling Responses
 					});
 			}
 
+
+		Signal alapú adatlekérés: httpResource
+			
+			Angular http library-jában lévő újabb típusú függvény.
+			Valójában egy signal alapú wrapper a HttpClient-hez.
+			Nem igényel kézi feliratkozást, leiratkozást. 
+			Beépített állapot és a hiba kezelés. 
+			Mindezekhez és az adatokhoz is signal-okon keresztül lehet hozzáférni.
+
+			categoriesResource = httpResource<Category[]>('/api/categories');
+
+			@if (categoriesResource.isLoading()) {
+			  Loading...
+			}
+
+			@if (categoriesResource.error()) {
+			  Error!
+			}
+	
+			@if (categoriesResource.value()) {
+			  {{ categoriesResource.value() }}
+			}
+
+			Függvény paraméteres megadással reaktív lesz a request:
+
+			categoryId = signal(1);
+
+			category = httpResource(() =>
+			  `/api/categories/${this.categoryId()}`
+			);
+			
+			// Automatikus refetch jön létre a signal állítására...
+			this.categoryId.set(5);
+
+			Ezt a feature-t a httpResource függvény (belső működése) eredményezi.
+
+			Nem helyettesíti a HttpClient megoldást, főleg GET esetén lehet jó egyszerű adatok lekérésére.
+
 		Adatküldés a backend-nek
 
 			// put - van egy második paramétere, ahol a küldendő adat van, ez lehetne bármi,
@@ -4666,6 +4704,9 @@ Service Workers
 	Az Angular nem fejleszti ezt az irányt, de kisebb igények esetén egy stabil megoldás lehet ma is.
 
 	Helyette ajánlott megoldások: Workbox
+
+
+
 
 NEWS
 
