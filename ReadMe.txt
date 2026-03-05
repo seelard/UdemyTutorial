@@ -4707,6 +4707,71 @@ Service Workers
 
 
 
+.NET Web API
+
+	Egy konrollerben a route felépítése
+
+	[ApiController]
+	[Route("api/[controller]")]
+	public class CategoriesController : ControllerBase
+	{
+	    [HttpPost]
+	    public async Task<IActionResult> Create(CategoryDto dto)
+	    {
+	        ...
+	    }
+	}
+
+	Az osztály neve lényeges. "Controller" szerepel a végén (CategoriesController).
+	A [Route("api/[controller])] határozza meg az adott endpoint-ok elérési útját (url).
+	Az "api" helyett lehetne bármi, ez jelenleg konvencionálisan az "api", mivel ilyen endpointok-ról van szó.
+	A [controller] helyére az osztály neve a "Controller" végződés nélkül értendő.
+	Azaz api/categories
+	A teljes url pedig a webAPI host-tól függ, pl.: https://localhost:7213/api/categories
+
+	Az egyes API függvények beazonosítása az url alapján történik, nem pedig a függvény neve alapján.
+
+
+	A [HttpPost] megadáshoz alapértelmezésben az "api/categories" route tartozik.
+
+	A megadás kiegészíthető, pl. [HttpPost("cerate")], ez a "api/categories/create" url-t jelenti.
+
+	Best practice
+
+	HttpGet - GetAll - api/categories - Ez szokásosan a GetAll
+	HttpGet - GetById - api/categories/4 - id paraméter az url-ben - Ez szokásosan a GetById
+	HttpPost - Create - api/categories - létrehozandó kategória a request body-ban - Ez szokásosan a Cretae
+	HttpPut - Update - api/categories/5 - id paraméter az url-ben, kategória adatok a request body-ban - Ez szokásosan az Update
+	HttpDelete - Delete - api/categories/3 - id paraméter az url-ben - Ez szokásosan a Delete
+	
+	Ez az alapértelmezés, nincsenek kiegészítések hozzáadva ( [HttpPost("create")] )
+
+	id az url-ben
+
+	[HttpPut]
+	[Route( "{id:Guid}" )]
+	[Authorize( Roles = "Writer" )]
+	public async Task<IActionResult> UpdateCategory( [FromRoute] Guid id, [FromBody] UpdateCategoryRequestDto request )
+	{
+
+	[Route( {id:Guid} )] - paraméternév:megkötés - parameter name/constraint
+
+		A megadott route csak akkor passzol ide (api/categories/{id}), ha az id egy szabályos Guid.
+
+		Egyéb constraint-ek pl.:
+
+		{id:int} - integer, {id:alpha} - csak betűk, {id:min(1)} - minimális érték, {id:maxLength(10)} - maximális hossz
+
+	A függvényben lévő paraméter nevévek egyezni kell a constraint-ben lévővel (case-insensitive).
+
+	Rövidebb formában is megadható
+
+	[HttpPut( "{id:Guid}" )]
+
+	[FromRoute] - jelzi a paraméter listában, hogy a route-ból érkezik az érték
+	[FromBody] - jelzi, hogy a request body tartalmazza az értéket ([FromBody] jelzőt nem kötelező megadni)
+
+
 
 NEWS
 
