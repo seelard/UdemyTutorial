@@ -7,6 +7,12 @@ Install Node.js
 		- de az Angular CLI (command line interface) használja 
 		- illetve vele együtt telepszik az npm (node package manager), amely kell többek közt az Angular telepítéséhez is
 
+	Telepített verziók lekérdezése:
+
+		node -v
+
+		npm -v
+
 Angular CLI (command line interface)
 
 	Az Angular alap eszköze, parancssorból lehet létrehozni, publikálni, ... Angular alkalmazásokat.
@@ -28,6 +34,10 @@ Globally install Angular CLI v19
 
 		npm install -g @angular/cli@19
 
+
+	Telepített verzió lekérdezése:
+
+		ng version
 
 Use a per-project (local) CLI version / NPX
 
@@ -1464,7 +1474,7 @@ Change Detection mechanisms
 		Avoiding Zone Pollution (egyéb optimalizálási lehetőség)
 
 			- Lehetőség van kódrészeket kizárni a change detection ellenőrzése alól.
-				A példában egy timer van, ami nem csinál UI-t érintő módosításokat mégis kiváltja az ellenőrzés,
+				A példában egy timer van, ami nem csinál UI-t érintő módosításokat mégis kiváltja az ellenőrzést,
 				mivel event-et generál és az Angular nem nézi mi van a benne lévő kódban.
 
 			private zone = inject(NgZone)
@@ -1493,7 +1503,7 @@ Change Detection mechanisms
 			Komponensenként beállítható.
 
 			Az adott komponensre és annak child-jaira 3 esetben fut le change detection
-				- ha a komponensben vagy valamelyik child komponensben event váltódik ki
+				- ha a komponensben vagy valamelyik child komponensben event váltódik ki (Angular event! pl. setInterval event nem ilyen)
 				- ha a komponensben valamelyik input mező módosításra kerül
 					- signal-ok esetén is
 				- manuális kezdeményezésre
@@ -1561,8 +1571,14 @@ Change Detection mechanisms
 								}
 
 								Feliratkozik az RxJS szolgáltatásra
+
 									- Tárolja a paraméterben kapott módosított adat tömböt.
+
 									- Az egész komponenst bejegyzi change detection-re.
+
+										- Lehetne közvetlenül hívni: 
+
+											this.cdRef.detectChanges();
 
 								Az ilyen feliratkozások esetén Good Practice kilépéskor a leiratkozás.
 								Ez lehetne az ngOnDestroy-ban is vagy az elegánsabb DestroyRef-rel.
