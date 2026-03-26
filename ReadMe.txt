@@ -204,7 +204,7 @@ Forms
 	Lesson 54	
 
 input within a Form (Two-way binding)
-	ngModel használatához az imput elem-nek lennie kel name attribútumának, ez célszerűen lehet ugyanaz, mint az id
+	ngModel használatához az input elem-nek lennie kel name attribútumának, ez célszerűen lehet ugyanaz, mint az id
 
 Content Projection with ng-Content
 
@@ -641,8 +641,8 @@ Template variables
 
 	  onSubmit() {
  	   this.myForm?.nativeElement.reset();  // Szintén kell a ?, 
-		 																			// illetve a nativeElement (wrapper-ben így elérhető a konkrét elem)
-																					// reset a HTMLFormElement metódusa
+		// illetve a nativeElement (wrapper-ben így elérhető a konkrét elem)
+		// reset a HTMLFormElement metódusa
   	}
 
 	@ViewChildren
@@ -1683,7 +1683,7 @@ RxJS (Observables)
 
 		Az előző fejezetben alkalmazott BehaviorSubject is egy observable alkalmazása volt.
 
-		Az observable egy subscriber, amire fel kell iratkozni. 
+		Egy observable-re fel kell iratkozni.
 		Feliratkozás nélkül nem lehet az adatokhoz férni (így a feliratkozás alapvető)
 
 		Pl.:
@@ -1746,7 +1746,7 @@ RxJS (Observables)
 				)
 
 			Csak a JavaScript szabályok szerinti truthy értékeket engedi tovább.
-			Gyakran használatos elő null értékek kiszűrésére.
+			Gyakran használatos null értékek kiszűrésére.
 
 		- Több operator is megadható egymás után (vesszővel elválasztva - pipeline).
 
@@ -1882,7 +1882,6 @@ RxJS (Observables)
 			A Subject (pl. BehaviorSubject) egy speciális Observable, de amíg a Subject-ek esetén a változási event kiváltása manuálisan történik,
 			addig egy Observable (amihez tipikusan tartozik valamilyen data source) automatikusan teszi.
 
-
 		Subject
 			Nem tárol adatot, csak közvetíti a next-nél átadott értéket.
 
@@ -1910,10 +1909,12 @@ RxJS (Observables)
 			  ]);
 			}
 
+			BehaviorSubject tulajdonsága még, hogy a rá való feliratkozáskor a subscriber mindig megkapja az utoljára emittált értéket.
+			Emittál egyet ezzel a részére. Ez lehet az utoljára emittált érték vagy az iniciálisan (létrehozáskor átadott) kezdőérték.
+
 		ReplaySubject
 			A Subject olyan alakja, ahol egy subscription esetén a subscriber megkapja az összes feliratkozása előtti adatot is.
 			Sima Subject esetén azokról nem lenne tudomása, mivel csak a feliratkozás után emittált-akat kapná meg.
-
 
 		- exhaustMap operátor
 
@@ -1957,7 +1958,13 @@ RxJS (Observables)
 			const combinedTimers = combineLatest([firstTimer, secondTimer]);
 			combinedTimers.subscribe(value => console.log(value));
 
+			// [0, 0] after 0.5s
+			// [1, 0] after 1s
+			// [1, 1] after 1.5s
+			// [2, 1] after 2s
+
 			Lehetnek a kombinált observable-k tömbben, objektumban...
+			Az emittált adatok a megadott struktúrában érkeznek (tömb, objektum, ...)
 			
 			const observables = {
 			  a: of(1).pipe(delay(1000), startWith(0)),
@@ -1967,7 +1974,21 @@ RxJS (Observables)
 			const combined = combineLatest(observables);
 			combined.subscribe(value => console.log(value));
 
+			// { a: 0, b: 0, c: 0 } immediately
+			// { a: 1, b: 0, c: 0 } after 1s
+			// { a: 1, b: 5, c: 0 } after 5s
+			// { a: 1, b: 5, c: 10 } after 10s
+
 			Rendelkezik egyéb overload-okkal is, kiegészítő paraméterekkel...
+
+		- startWith operator
+			
+			Visszaad egy observable-t, amely a feliratkozás pillanatában a paramétereiben kapott értékeket emittálja.
+			Beépülve egy pipeline-ba azt eredményezi, hogy az adott source-ra való feliratkozáskor a megadott érték(ek) azonnal (kezdésként-startWith)
+			emittálásra kerülnek, utána a source által emittált adatok következheznek...
+
+			A combineLatest példájában ezért van az { a: 0, b: 0, c: 0 } adat emittálva.
+			Ez mint első emittálásként is funkcionál (mindegyik observable esetén), mivel a combine csak akkor emittál, ha mindegyik emittált már egyet.
 
 		- forkJoin operator
 
@@ -2434,7 +2455,7 @@ Sending HTTP Requests and Handling Responses
 			Angular http library-jában lévő újabb típusú függvény.
 			Valójában egy signal alapú wrapper a HttpClient-hez.
 			Nem igényel kézi feliratkozást, leiratkozást. 
-			Beépített állapot és a hiba kezelés. 
+			Beépített az állapot és a hiba kezelés. 
 			Mindezekhez és az adatokhoz is signal-okon keresztül lehet hozzáférni.
 
 			categoriesResource = httpResource<Category[]>('/api/categories');
