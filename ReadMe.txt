@@ -183,6 +183,149 @@ Change detection mechanisms
 			return this._userId;
 		}
 
+Dependency Injection (injection context)
+
+	Injektálható elemek behúzhatóak egy komponensbe pl. a konstruktorban használt mező segítségével
+
+		constructor(private destroyRef: DetsroyRef) {...
+
+	Vagy egy mező inicializálásban használt inject függvénnyel
+
+		readonly destroyRef = inject(DestroyRef);
+
+	Az inject függvény csak az ún. injection context-en belül használható.
+
+		- Konstruktorban
+		- Mező inicializálóban
+		- Külső (export) függvényben, ahol egy lokális változó kapja értékül.
+			- Ez a külső függvény is csak konstruktorból hívható.
+		- Tehát pl. az OnInit-ből sem érhető el !!!
+
+	Mindenhol, ahol injektálásra van szükség el kell tudni érni a globális injector objektumot.
+	Ez csak a fenti esetekben lehetséges.
+
+	Vagy ha valahogy tároljuk ezt az injector-t.
+
+	private injector = inject(Injector);
+
+	ngOnInit() {
+
+		runInInjectionContext(this.injector, () => { startCounting(); });
+
+	}
+
+	Ezzel a megoldással hívható egy olyan függvény (injection context-en kívülről), amely tartalmaz inject hívást.
+
+Signals
+
+	Signal
+		
+		a = signal(10);
+
+		Ez egy WriteableSignal, kezdő érték megadása szükséges.
+
+	Computed signals
+
+		a = computed(() => x() * y())
+
+		"a" az eredmény, egy readonly signal.
+
+		Egyéb signal-okból származó értéket tartalmazhat, mint a példában x() * y().
+		Bármely tartalmazott signal módosítása esetén aktualizálódik.
+		Tartalmazhat konstansokat (azok nem befolyásolják az aktualizálódást)
+		Nem tartalmazhat
+		- aszinkron kódot
+		- egyéb hagyományos változót
+		- függvényhívást (értéket ad vissza vagy valamilyen mellékhatása lehet)
+		- Egyéb signal létrehozást vagy módosítást
+
+	Effects
+
+		effect(() => {......});
+
+		A paraméter egy függvény, az abban szereplő bármely signal módosítása esetén újra lefut.
+		Ha több signal-t is tartalmaz, azok "kötegelt" módosítása esetén csak egyszer fut le.
+		Erre az Angular-nak van optimalizációs képessége...
+
+		Nem tartalmazhat
+		- Egyéb signal módosítást
+
+		Tartalmazhat viszont:
+		- aszinkron kódot
+		- függvényhívást (mellékhatás
+
+		effect szintén csak injection context-en belül alkalmazható.
+
+		Azon kívül alkalmazva szükség van a globális injector-ra.
+
+		private injector = inject(Injector);
+
+		effect(
+			() => { console.log(this.mySignal(); },
+			{ injector: this.injector }
+		);
+
+		Az effect második paramétere lehet egy konfigurációs objektum, ahol megadható az injector.
+		Ebben az esetben egyéb helyről is használható.
+
+		Felmerül a kérdés, hogy ki lehet-e iktatni egy bekapcsolt effect-et saját kezűleg.
+
+		Az effect-nek van egy visszatérési értéke (EffectRef típusú)
+
+		ef: EffectRef | null = null;
+
+		ef = effect(
+			() => { console.log(this.mySignal(); },
+			{ injector: this.injector }
+		);
+
+		stop() {
+			this.ef?.destroy();
+			this.ef = null;
+		}
+	
+	Linked signals
+
+		Egy újabb signal megoldás v19-től kezdődően.
+		A computed és a WriteableSignal együtt.
+		Azaz egy two-way-binding-ot valósít meg azzal, hogy writeable.
+		Meghatározható egy visszaható függvény is, amivel a megfigyelt signal visszafelé is módosítható.
+
+		const source = signal(10);
+
+		// Konfigurációs objektum a paraméter (van más lehetőség is a paraméterezésre...)
+		const linked = linkedSignal({
+		  source, // a megfigyelt signal
+		  computation: (value) => value * 2, // a megfigyelt signal-ból így képződik a jelen (linked) signal értéke
+		  update: (newValue) => newValue / 2 // ez a visszaható függvény, ami a megfigyelt signal-t állítja, ha a jelen (linked) signal módosul
+		});
+
+		console.log(linked()); // 20
+
+		linked.set(50); 
+
+		console.log(source()); // 25
+
+	Reactive Context
+
+		Azon kódrészek, amelyekben lévő signal-okat figyeli az Angular és azok változására végrehajtja a kódot.
+		Ilyenek pl. a computed vagy az effect-ben magadott függvények.
+
+		Ezen részekben nem lehet signal-t módosítani, létrehozni újat, létrehozni új effect-et.
+
+		effect esetén lehetőség van engedélyezni egy másik signal módosítását a függvényen belül.
+		A konfigurációs objektum engedélyező mezőjét true-ra állítva.		
+
+		effect(() => {
+			console.log(this.mySignal();
+			this.otherSignal.update((x) => x + 1);
+		},
+			{ allowSignalWrites: true }
+		);
+
+		Illetve az effect tartalmazhat aszinkron kódot.
+		Egy aszinkron hívás (await) utáni kódrész már nem számít bele a reactive context-be, így ott lehet signal módosítás.
+
 Signal inputs
 	Lesson 33, 36
 
