@@ -2321,6 +2321,46 @@ RxJS (Observables)
 			Ezt át lehet állítani (ha kézzel szeretnénk az observable-t megszüntetni...):
 				intervalSignal = toSignal(this.interval$, { initialValue: 0, , manualCleanup: true });
 
+	Megkötések toObservable, toSignal esetére
+
+		A háttérben effect-et használ az Angular a módosítások figyelésére, az effect viszont  csak injection context-en belül alkalmazható.
+
+		Azon kívül alkalmazva szükség van a globális injector-ra.
+
+		private injector = inject(Injector);
+
+		clickCount$ = toObservable(this.clickCount, { injector: this.injector });
+
+		intervalSignal = toSignal(this.interval$, { initialValue: 0, injector: this.injector });
+
+	output() használéat helyén alkalmazott átalakítás: outputFromObservable
+
+		// Observable alap subject
+		readonly manualRefresh$ = new BehaviorSubject<void>(undefined);
+
+		// Segéd observable alap subject
+		private readonly stop$ = new Subject<void>();
+
+		stopRefresh() {
+		  this.stop$.next();
+		}
+
+		// Observable, amire a outputFromObservable átalakító iratkozik fel (leiratkozás automatikus a takeUntilDestroy() miatt)
+		// Feliratkozáskor még nem történik semmi. Az első manualRefresh.next()-re indul a belső interval observable, de azonnal is kivált egy eseményt a startsWith(0) miatt.
+		// Innentől 5 másodpercenként kiváltódik (belső observable). Egy újabb next()-re az előző interval (belső observable) megszűnik, és kezdi előlről (azonnali esemény + 5mp interval).
+		// A segéd observable (stop$) segítségével szintén leállítható.
+		readonly refreshRequired$ = this.manualRefresh$.pipe(
+		  switchMap(() => interval(5000).pipe(startWith(0))),
+		  map(() => {}),
+		  takeUntilDestroyed(), 
+		  takeUntil(this.stop$)
+		);
+
+		// Ez az output, ami @Output esetén egy EventEmitter.
+		// Ennek hívható az .emit() metódusa output() esetben is kiváltani az output eseményt.
+		// Jelen esetben az observable next-je váltja ki, mivel itt abból kerül átalakításra...
+		readonly refreshRequired = outputFromObservable(this.refreshRequired$);
+
 	Building Custom Observables
 
 		Saját observable: egy olyan objektum amire ugyanúgy fel kell iratkozni, ahogy egy "gyári"-ra.
