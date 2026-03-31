@@ -239,13 +239,42 @@ Signals
 		- függvényhívást (értéket ad vissza vagy valamilyen mellékhatása lehet)
 		- Egyéb signal létrehozást vagy módosítást
 
-	Effects
+	Effects - effect() függvény
+
+		LifeCycle related függvény, de inkább signal-okhoz tartozik.
+
+		Egy komponensben alkalmazott signal esetén a template-ben lévő (bind-olt) elemek automatikusan követik
+		a signal változásait (automatikusan feiratkoznak rá).
+
+		Arra használható az effect(), ha a ts kódban szeretnénk értesülni a változásról.
 
 		effect(() => {......});
 
 		A paraméter egy függvény, az abban szereplő bármely signal módosítása esetén újra lefut.
 		Ha több signal-t is tartalmaz, azok "kötegelt" módosítása esetén csak egyszer fut le.
 		Erre az Angular-nak van optimalizációs képessége...
+
+		effect(() => {
+			console.log(this.mySignal());
+		})
+
+		const count = signal(0);
+		const name = signal('Alice');
+
+		// Effect 1 — depends on count
+		effect(() => {
+			console.log('Count changed:', count());
+		});
+
+		// Effect 2 — depends on name
+		effect(() => {
+			console.log('Name changed:', name());
+		});
+
+		// Effect 3 — depends on both
+		effect(() => {
+			console.log(`Combined: ${name()} - ${count()}`);
+		});
 
 		Nem tartalmazhat
 		- Egyéb signal módosítást
@@ -283,6 +312,23 @@ Signals
 			this.ef?.destroy();
 			this.ef = null;
 		}
+
+		CleanUp logic in effect()
+
+		effect((onCleanup) => {
+			const tasks = getTasks();
+			const timer = setTimeout(() => {
+				console.log(`Current number of tasks: ${tasks().length}`);
+			}, 1000);
+			onCleanup(() => {
+				clearTimeout(timer);
+			});
+		});
+
+		- a getTasks() egy signal-t ad vissza (ez lehet a figyelt signal, amely változására hívódik ez a callback)
+		- onCleanup() regisztrál egy másik callback függvényt (ez a külső callback paraméterében meg is marad)
+			Ez lehetőséget biztosít a következő változáskor, hogy először ez a függvény fusson le.
+		- Az onCleanup meghívásra kerül akkor is, ha az effect megszűnik (destroyed), ami pl. a komponens megszünésekor történik.
 	
 	Linked signals
 
@@ -347,7 +393,7 @@ Forms
 	Lesson 54	
 
 input within a Form (Two-way binding)
-	ngModel használatához az input elem-nek lennie kel name attribútumának, ez célszerűen lehet ugyanaz, mint az id
+	ngModel használatához az input elem-nek lennie kell name attribútumának, ez célszerűen lehet ugyanaz, mint az id
 
 Content Projection with ng-Content
 
@@ -452,10 +498,10 @@ Content Projection
 	Szükséges az azonosítás. A select egy css selector, a fenti példában minden megfelelő, ami tartalmazza az 'icon' class-t.
 	Így ott a <span> elemet a beágyazó helyre kell kirakni, hogy lehessen hozzá class-t megadni.
 
-  <button AppButton>
-    Submit
-    <span class="icon">♦</span>
-  </button>
+	<button AppButton>
+		Submit
+		<span class="icon">♦</span>
+	</button>
 
 	Az első ng-content nincs azonosítva, így az megkapja az összes olyan tartalmat, ami máshová nem illeszkedett.
 
@@ -468,10 +514,10 @@ Content Projection
 		<ng-content select="icon"/>  --Itt ez egy item selector nem class selector (lekerült a .)
 	</span>
 
-  <button AppButton>
-    Submit
-    <span ngProjectAs="icon">♦</span>
-  </button>
+	<button AppButton>
+		Submit
+		<span ngProjectAs="icon">♦</span>
+	</button>
 
 	Fallback value megadása az icon-hoz (ha nem lenne megfelelő elem a select-hez, akkor az jelenne meg)
 
@@ -504,15 +550,15 @@ Content Projection
 
 	Beágyazása:
 
-  <app-control>
-    Title
-    <input name="title" id="title"/>
-  </app-control>
+	<app-control>
+		Title
+		<input name="title" id="title"/>
+	</app-control>
 
-  <app-control>
-    Request
-    <textarea name="request" id="request" rows="3"></textarea>
-  </app-control>
+	<app-control>
+		Request
+		<textarea name="request" id="request" rows="3"></textarea>
+	</app-control>
 
 View encapsulation options to control CSS scoping
 
@@ -809,12 +855,32 @@ Template variables
 
 		private myForm = viewChild<ElementRef<HTMLFormElement>>('form');
 
+		// A lekérdezett elemek ilyenkor signal-ok.
+
 	 	this.myForm()?.nativeElement.reset(); // Kell a ?
 
 		// required alkalmazásával
 		private myForm = viewChild.required<ElementRef<HTMLFormElement>>('form');
 
 	 	this.myForm().nativeElement.reset(); // Nem kell a ?
+
+		Ebben az esetben is az ngAfterViewInit meghívódásakor lesznek elérhetőek az így lekérdezett elemek (signal-ok),
+		előtte pl. a konstruktorban még nem.
+
+		De pl. egy effect definícióban szerepelhetnek pl. a konstruktorban is.
+		Az effect függvények csak minden life cycle rész végeztével fognak lefutni.
+
+	Lekérdezett child elem típusának meghatározása
+
+		<div #myRef></div>
+
+		Pl. egy div többféle módon is nézhető:
+
+		myRefDiv = viewChild.required('myRef', { read: ElementRef });
+		vagy
+		myRefDiv = viewChild.required('myRef', { read: ViewContainerRef });
+
+		Egy konfigurációs objektumban lehet megadni a kért nézetet.
 
 @ContentChild, @ContentChildren
 
@@ -829,15 +895,15 @@ Template variables
 	Az egyes elemek itt is azonosíthatóak többek közt template variable megadással.
 	Itt a template variable-nek a beágyazó résznél kell szerepelnie
 
-  <app-control>
-    Title
-    <input name="title" id="title" #myInput/>
-  </app-control>
+	<app-control>
+		Title
+		<input name="title" id="title" #myInput/>
+	</app-control>
 
-  <app-control>
-    Request
-    <textarea name="request" id="request" rows="3" #myInput></textarea>
-  </app-control>
+	<app-control>
+		Request
+		<textarea name="request" id="request" rows="3" #myInput></textarea>
+	</app-control>
 
 	Ebben az esetben ugyanaz a template variable több különböző helyen is szerepel!!!
 	Magában a komponensben mindig csak az egyik, mivel mindegyik egy külön komponens.
@@ -849,55 +915,6 @@ Template variables
 
 	A ControlComponent-ben a 'myInput' template variable használható a @ContentChild paramétereként.
 	A kapott elem típusa HTMLInputElement | HTMLTextAreaElement.
-
-effect()
-	LifeCycle related függvény, de inkább signal-okhoz tartozik.
-
-	Egy komponensben alkalmazott signal esetén a template-ben lévő (bind-olt) elemek automatikusan követik
-	a signal változásait (automatikusan feiratkoznak rá).
-
-	Arra használható az effect(), ha a ts kódban szeretnénk értesülni a változásról.
-
-	effect(() => {
-		console.log(this.mySignal());
-	})
-
-	Az effect paraméterében kap egy callback függvényt, az abban szereplő signal-ok bármelyikének változása esetén meghívódik.
-
-	const count = signal(0);
-	const name = signal('Alice');
-
-	// Effect 1 — depends on count
-	effect(() => {
-		console.log('Count changed:', count());
-	});
-
-	// Effect 2 — depends on name
-	effect(() => {
-		console.log('Name changed:', name());
-	});
-
-	// Effect 3 — depends on both
-	effect(() => {
-		console.log(`Combined: ${name()} - ${count()}`);
-	});
-
-	CleanUp logic in effect()
-
-	effect((onCleanup) => {
-		const tasks = getTasks();
-		const timer = setTimeout(() => {
-			console.log(`Current number of tasks: ${tasks().length}`);
-		}, 1000);
-		onCleanup(() => {
-			clearTimeout(timer);
-		});
-	});
-
-	- a getTasks() egy signal-t ad vissza (ez lehet a figyelt signal, amely változására hívódik ez a callback)
-	- onCleanup() regisztrál egy másik callback függvényt (ez a külső callback paraméterében meg is marad)
-		Ez lehetőséget biztosít a következő változáskor, hogy először ez a függvény fusson le.
-	- Az onCleanup meghívásra kerül akkor is, ha az effect megszűnik (destroyed), ami pl. a komponens megszünésekor történik.
 
 @for fallback ág -> @empty
 
@@ -919,7 +936,6 @@ effect()
 	$even (true/false)
 	$count (elemszám)
 	$index (aktuális elem indexe)
-
 
 Custom two-way binding (ngModel használata nélkül)
 	(v17-től már használható a model() függvény)
