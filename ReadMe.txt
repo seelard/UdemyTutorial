@@ -343,7 +343,7 @@ Signals
 		const linked = linkedSignal({
 		  source, // a megfigyelt signal
 		  computation: (value) => value * 2, // a megfigyelt signal-ból így képződik a jelen (linked) signal értéke
-		  update: (newValue) => newValue / 2 // ez a visszaható függvény, ami a megfigyelt signal-t állítja, ha a jelen (linked) signal módosul
+		  update: (newValue) => newValue / 2 // ez a visszaható függvény, ami a megfigyelt signal-t (source) állítja, ha a jelen (linked) signal módosul
 		});
 
 		console.log(linked()); // 20
@@ -596,11 +596,11 @@ CSS :host slector
 @Component host property
 
 	Ha magának egy komponensnek van szüksége class beállításra és azt szeretnénk,
-	hogy ezt ne kelljen minden felhasználási helyen külön megadnia template(ek)ben.
+	hogy ezt ne kelljen minden felhasználási helyen külön megadni a template(ek)ben.
 
 	<app-control class="control" />
 
-  @Component({
+	@Component({
 		selector: 'app-control',
 		...
 		encapsulation: ViewEncapsulation.None,
@@ -1156,7 +1156,7 @@ Dependency Injection in Directives
 			const sure = window.confirm('Are you sure?');
 
 			if (sure) {
-	      this.hostElementRef.nativeElement.href += '?from=' + this.queryParam();
+				this.hostElementRef.nativeElement.href += '?from=' + this.queryParam();
 
 				return;
 			}
@@ -1222,21 +1222,21 @@ Custom Structural Directive létrehozása
 
 		Ezek használhatóak a DOM megjelenítés vezérlésére:
 
-    effect(() => {
-      if (this.authService.activePermission() === this.userType()) {
+		effect(() => {
+			if (this.authService.activePermission() === this.userType()) {
 
-	// createEmbeddedView: Angular function létrehozni egy DOM elemet egy megadott helyen...
-        this.viewContainerRef.createEmbeddedView(this.templateRef);
-      }
-      else {
-         this.viewContainerRef.clear();
-      }
-    });
+				// createEmbeddedView: Angular function létrehozni egy DOM elemet egy megadott helyen...
+				this.viewContainerRef.createEmbeddedView(this.templateRef);
+			}
+			else {
+				this.viewContainerRef.clear();
+			}
+		});
 
 		A * előtag egy szintaktikai megoldás, aminek hatására az <ng-template> beágyazás automatikusan megtörténik.
 		(*ngIf, *ngFor is ilyen)
 
-    <p *appAuth="'admin'">Only admins should see this!</p>
+		<p *appAuth="'admin'">Only admins should see this!</p>
 
 		- Annyi változik, hogy itt automatikusan property binding-ot vár (mintha [] közt lenne),
 			ezért a string konstantst aposztrófok közé kell rakni.
@@ -3656,9 +3656,9 @@ Routing
 			A kettőspont utáni rész a dinamikus tartalom, ami a programból módosítható (a kettőspont csak szintaktikai okból kell, nem lesz a része a path-nak).
 				- ún. path paraméter vagy paraméterek
 
-		  <a [routerLink]="'/users/' + user().id" routerLinkActive="selected">
+				<a [routerLink]="'/users/' + user().id" routerLinkActive="selected">
 
-				ahol a user a példában egy imput signal
+				ahol a user a példában egy input signal
 
 					user = input.required<User>();
 
@@ -3709,7 +3709,7 @@ Routing
 						Ez a service tartalmaz számos objektumot, amiből információk nyerhetőek (ebből jónéhány observable).
 							- Ebből az egyik observable a paramMap, amiből a path paramétereket lehet megkapni.
 
-					    this.activatedRoute.paramMap.subscribe({
+							this.activatedRoute.paramMap.subscribe({
 								next: paramMap => console.log(paramMap.get('userId'))
 							});
 
