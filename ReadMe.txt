@@ -342,7 +342,7 @@ Signals
 		// Konfigurációs objektum a paraméter (van más lehetőség is a paraméterezésre...)
 		const linked = linkedSignal({
 		  source, // a megfigyelt signal
-		  computation: (value) => value * 2, // a megfigyelt signal-ból így képződik a jelen (linked) signal értéke
+		  computation: (value) => value * 2, // a megfigyelt signal módosítása esetén fut le és adja vissza a jelen (linked) signal értékét
 		  update: (newValue) => newValue / 2 // ez a visszaható függvény, ami a megfigyelt signal-t (source) állítja, ha a jelen (linked) signal módosul
 		});
 
@@ -351,6 +351,31 @@ Signals
 		linked.set(50); 
 
 		console.log(source()); // 25
+
+		A two-way binding lehetőség kihasználása nélkül is alkalmazható
+
+		readonly products = signal(['Apple', 'Banana', 'Orange', 'Pineapple']);
+
+		// rövid szintaxis, ahol egy függvény adott (computation), az abban szereplő signal módosítása esetén lefut.
+		readonly selectedProduct = linkedSignal(() => this.products()[0]);
+
+		// konfigurációs objektum használata (minimálisan a következő 2 mezőt kell tartalmaznia)
+		readonly selectedProduct = linkedSignal({
+			// A megfigyelt signal
+			source: this.products,
+			// A figyelt signal módosulása esetén hajtódik végre. 
+			// Paraméterben kapja a figyelt signal értékét
+			// A linked signal értékét adja vissza. Az érték képzéséhez nem feltétlenül kell használni a figyelt signal értékét.
+			computation: prods => prods[0]
+		});
+
+		// computation függvény másik formája, ahol megkapja az előző értéket (prev)
+		// A prev egy objektum két property-vel (source, value), source - az előző source értéke (products), value - linked signal előző értéke (selectedProduct)
+		// Typescript-nek szüksége van ilyenkor a típusokra, amelyek a generikus formában megadhatóak <string[], string>
+		readonly selectedProduct = linkedSignal<string[], string>({
+			source: this.products,
+			computation: (prods, prev) => prods[0]
+		});
 
 	Reactive Context
 
@@ -2683,6 +2708,21 @@ Sending HTTP Requests and Handling Responses
 			this.categoryId.set(5);
 
 			Ezt a feature-t a httpResource függvény (belső működése) eredményezi.
+
+			A függvény paraméter adhat vissza egy objektumot is. Ennek segítségével egy összetett url-t (pl. search esetén) nem kell kézzel összeállítani.
+			Az objektumnak minimálisan egy url mezőt kell tartalmaznia.
+			A params mező szintén egy object (key-value párok), amely adatait a rendszer hozzáírja az url-hez.
+			Lényeges pont, hogy a params-ban szereplő signal módosítása esetén a http kérés újra lefut (refetch).
+			A függvény paraméteren kívül lehet még egyéb paraméter is, jelen esetben egy options objektum, ami a default értéket tartalmazza.
+
+			private _searchResult = httpResource<Book[]>(() => {
+			  return {
+			    url: `${this.apiBase}/search`,
+			    params: { q: this._keyword() }
+			  }
+			}, {
+			   defaultValue: []
+			})
 
 			Nem helyettesíti a HttpClient megoldást, főleg GET esetén lehet jó egyszerű adatok lekérésére.
 
